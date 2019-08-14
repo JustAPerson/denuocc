@@ -21,8 +21,8 @@ extern crate test;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use denuocc::Driver;
 use denuocc::tu::TUState;
+use denuocc::Driver;
 use serde_derive::Deserialize;
 use test::{ShouldPanic, TestDesc, TestDescAndFn, TestFn, TestName};
 use toml::Spanned;
@@ -76,7 +76,11 @@ impl Case {
 
         let mut tu = driver.run_one("<case>").unwrap();
         let state = tu.take_state().unwrap();
-        let messages = tu.take_messages().into_iter().map(|m| format!("{}", m)).collect::<Vec<_>>();
+        let messages = tu
+            .take_messages()
+            .into_iter()
+            .map(|m| format!("{}", m))
+            .collect::<Vec<_>>();
 
         if let Some(ref expected_messages) = self.messages {
             assert_eq!(&messages, expected_messages);
@@ -107,8 +111,8 @@ impl Case {
     }
 
     fn compare_input_output(&self, suite: &Suite, input: TUState, output: TUState) {
-        use OutputCompare::*;
         use denuocc::token::assert_pptokens_loose_equal;
+        use OutputCompare::*;
 
         match suite.output_compare {
             AssertPptokensLooseEqual => {
@@ -118,7 +122,6 @@ impl Case {
             }
         }
     }
-
 
     fn run(self, suite: &Suite) {
         let input_result = self.run_input(suite);
@@ -166,7 +169,10 @@ fn read_toml(
                 desc: TestDesc {
                     name: TestName::DynTestName(format!(
                         "{:?} suite={} case={} line={}",
-                        &filename.as_os_str(), &name, num_cases, case.line
+                        &filename.as_os_str(),
+                        &name,
+                        num_cases,
+                        case.line
                     )),
                     ignore: false,
                     should_panic: ShouldPanic::No,

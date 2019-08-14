@@ -78,7 +78,8 @@ impl Driver {
         self.flags = Flags::default();
     }
 
-    /// Adds the contents of the given path to the list of input translation units
+    /// Adds the contents of the given path to the list of input translation
+    /// units
     pub fn add_input_file(&mut self, path: impl AsRef<std::path::Path>) -> Result<()> {
         let stdin_path: &std::path::Path = "-".as_ref();
 
@@ -123,7 +124,8 @@ impl Driver {
 
     /// Adds the given string to list of input translation units
     ///
-    /// `name` must be wrapped in angle brackets (<>) to help distinguish from file paths
+    /// `name` must be wrapped in angle brackets (<>) to help distinguish from
+    /// file paths
     pub fn add_input_str(&mut self, name: &str, content: &str) {
         assert!(
             name.starts_with("<") && name.ends_with(">"),

@@ -1,0 +1,10 @@
+# max_width = 100
+tab_spaces = 4
+
+comment_width = 100
+wrap_comments = true
+normalize_comments = true
+
+error_on_line_overflow = true
+error_on_unformatted = true
+format_strings = true

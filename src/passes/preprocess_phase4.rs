@@ -19,9 +19,9 @@ use std::vec::IntoIter;
 
 use crate::error::Result;
 use crate::message::MessageKind::{
-    ExpectedFound, Phase4DefineOperator, Phase4ExpectedPPToken, Phase4InvalidDirective,
-    Phase4MacroArity, Phase4MacroArityVararg, Phase4MacroType, Phase4UnexpectedDirective,
-    Phase4ExpectedNewline,
+    ExpectedFound, Phase4DefineOperator, Phase4ExpectedNewline, Phase4ExpectedPPToken,
+    Phase4InvalidDirective, Phase4MacroArity, Phase4MacroArityVararg, Phase4MacroType,
+    Phase4UnexpectedDirective,
 };
 use crate::passes::helper::args_assert_count;
 use crate::token::{PPToken, PPTokenKind};
@@ -362,7 +362,8 @@ impl<'a, 'b> PPTokenStream<'a, 'b> {
                 }
 
                 MacroDef::Object { replacements, .. } => {
-                    // let replacements = self.expand_macros(replacements.clone());
+                    // let replacements =
+                    // self.expand_macros(replacements.clone());
                     let replacements = replacements.clone();
                     output.append(&mut self.expand_macros(replacements));
                 }
@@ -370,7 +371,8 @@ impl<'a, 'b> PPTokenStream<'a, 'b> {
                     let name = name.clone();
                     output.append(&mut self.expand_macro_function(name, &mut iter));
 
-                    // match_macro_function(), called by expand_macro_function(),
+                    // match_macro_function(), called by
+                    // expand_macro_function(),
                     // will take care of the closing paren for us
                 }
             }
@@ -428,7 +430,8 @@ impl<'a, 'b> PPTokenStream<'a, 'b> {
 
         let name = self.skip_token().value;
         if self.macrodefs.contains_key(&name) {
-            // TODO remove this and permit exact macro redefinitions and warn on overwrites
+            // TODO remove this and permit exact macro redefinitions and warn on
+            // overwrites
             unimplemented!();
         }
         self.skip_whitespace();
@@ -534,10 +537,13 @@ impl<'a, 'b> PPTokenStream<'a, 'b> {
 
         if self.peek().kind != PPTokenKind::Identifier {
             // invalid directive
-            self.tuctx.emit_message(self.peek().location.clone() , Phase4ExpectedPPToken {
-                expected: PPTokenKind::Identifier,
-                found: self.peek().kind,
-            });
+            self.tuctx.emit_message(
+                self.peek().location.clone(),
+                Phase4ExpectedPPToken {
+                    expected: PPTokenKind::Identifier,
+                    found: self.peek().kind,
+                },
+            );
 
             // ignore directive
             self.skip_until_newline();
@@ -548,9 +554,12 @@ impl<'a, 'b> PPTokenStream<'a, 'b> {
         self.skip_whitespace_until_newline();
 
         if self.peek().as_str() != "\n" {
-            self.tuctx.emit_message(self.peek().location.clone() , Phase4ExpectedNewline {
-                found: self.peek().kind,
-            });
+            self.tuctx.emit_message(
+                self.peek().location.clone(),
+                Phase4ExpectedNewline {
+                    found: self.peek().kind,
+                },
+            );
 
             // ignore extra tokens on this line
             self.skip_until_newline();
