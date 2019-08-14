@@ -10,15 +10,15 @@ output_compare = "assert_pptokens_loose_equal"
 # Test just defining macros
 
 [[suites.phase4.cases]]
-input = "#define\n"
-messages = ["<case>:0:0: expected `Identifier` token; found `EndOfFile`"]
-
-[[suites.phase4.cases]]
 input = "#define a"
 output = ""
 
 [[suites.phase4.cases]]
 input = "#define test()"
+output = ""
+
+[[suites.phase4.cases]]
+input = "#define test(a)"
 output = ""
 
 [[suites.phase4.cases]]
@@ -29,11 +29,33 @@ output = ""
 input = "#define test(a, b, ...)"
 output = ""
 
-[[suites.phase4.cases]]
-input = "#define test(a)"
-output = ""
+################################################################################
+# test definition parsing errors and that they result in no definition
+################################################################################
 
+[[suites.phase4.cases]]
+input = "#define\n"
+messages = ["<case>:0:0: expected `Identifier` token; found `EndOfFile`"]
+
+[[suites.phase4.cases]]
+input = """
+#define test(a b)
+test(a)
+"""
+output = "test(a)"
+messages = ["<case>:1:15: expected `,`; found `b`"]
+
+[[suites.phase4.cases]]
+input = """
+#define test(..., a) __VA_ARGS__
+test(a)
+"""
+output = "test(a)"
+messages = ["<case>:1:16: expected `)`; found `,`"]
+
+################################################################################
 # Test expanding macros
+################################################################################
 
 [[suites.phase4.cases]]
 input = """

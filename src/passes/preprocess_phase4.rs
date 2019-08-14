@@ -458,44 +458,56 @@ impl<'a, 'b> PPTokenStream<'a, 'b> {
 
                     (State::LParenOrComma, PPTokenKind::Identifier, ..) => {
                         state = State::Ident;
-                        params.push(token.value); // FIXME ?can this clone be avoided?
+                        params.push(token.value);
                     }
                     (State::LParenOrComma, _, "...") => {
                         state = State::Vararg;
                         vararg = true;
                     }
-                    (State::LParenOrComma, ..) => self.tuctx.emit_message(
-                        // TODO FIXME error should skip rest of directive
-                        token.location,
-                        ExpectedFound {
-                            expected: "identifier, `)`, or `...`".to_owned(),
-                            found: format!("`{}`", token.value),
-                        },
-                    ),
+                    (State::LParenOrComma, ..) => {
+                        self.tuctx.emit_message(
+                            token.location,
+                            ExpectedFound {
+                                expected: "identifier or `...`".to_owned(),
+                                found: format!("`{}`", token.value),
+                            },
+                        );
+
+                        self.skip_until_newline();
+                        return;
+                    }
 
                     (State::Ident, _, ",") => {
                         state = State::LParenOrComma;
                     }
                     (State::Ident, ..) => {
-                        // TODO FIXME error should skip rest of directive
-                        state = State::LParenOrComma;
                         self.tuctx.emit_message(
                             token.location,
                             ExpectedFound {
-                                expected: "comma".to_owned(),
+                                expected: "`,`".to_owned(),
                                 found: format!("`{}`", token.value),
                             },
-                        )
+                        );
+
+                        self.skip_until_newline();
+                        return;
                     }
 
                     // closing paren handled by first pattern in match
-                    (State::Vararg, ..) => self.tuctx.emit_message(
-                        token.location,
-                        ExpectedFound {
-                            expected: "identifier, `)`, or `...`".to_owned(),
-                            found: format!("`{}`", token.value),
-                        },
-                    ),
+                    // so we've encountered something after `...` which
+                    // is erroneous
+                    (State::Vararg, ..) => {
+                        self.tuctx.emit_message(
+                            token.location,
+                            ExpectedFound {
+                                expected: "`)`".to_owned(),
+                                found: format!("`{}`", token.value),
+                            },
+                        );
+
+                        self.skip_until_newline();
+                        return;
+                    }
                 }
             }
 
