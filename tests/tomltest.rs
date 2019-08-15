@@ -223,7 +223,8 @@ fn main() -> Result<(), std::io::Error> {
         read_toml(&filename, &mut tests)?;
     }
 
-    let opts = test::parse_opts(&[]).unwrap().unwrap();
+    let args: Vec<String> = std::env::args().collect();
+    let opts = test::parse_opts(&args).unwrap().unwrap();
     test::run_tests_console(&opts, tests);
 
     Ok(())
