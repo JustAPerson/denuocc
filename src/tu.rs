@@ -36,10 +36,20 @@ pub enum TUState {
 }
 
 macro_rules! into_methods {
-    ($(($method:ident, $variant:ident, $returns:ty)),+) => ($(
-        pub fn $method(self) -> Result<$returns> {
+    ($(($into_method:ident, $as_method:ident, $variant:ident, $returns:ty)),+) => ($(
+        pub fn $into_method(self) -> Result<$returns> {
             match self {
                 TUState::$variant(val) => Ok(val),
+                other => Err(ErrorKind::TUStateTypeError {
+                    current_type: other.kind(),
+                    expected_type: stringify!($variant),
+                }.into()),
+            }
+        }
+
+        pub fn $as_method(&self) -> Result<&$returns> {
+            match self {
+                TUState::$variant(val) => Ok(&val),
                 other => Err(ErrorKind::TUStateTypeError {
                     current_type: other.kind(),
                     expected_type: stringify!($variant),
@@ -59,8 +69,8 @@ impl TUState {
     }
 
     into_methods! {
-        (into_chartokens, CharTokens, Vec<crate::token::CharToken>),
-        (into_pptokens, PPTokens, Vec<crate::token::PPToken>)
+        (into_chartokens, as_chartokens, CharTokens, Vec<crate::token::CharToken>),
+        (into_pptokens, as_pptokens, PPTokens, Vec<crate::token::PPToken>)
     }
 }
 

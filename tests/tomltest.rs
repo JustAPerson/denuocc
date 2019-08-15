@@ -28,15 +28,15 @@ use test::{ShouldPanic, TestDesc, TestDescAndFn, TestFn, TestName};
 use toml::Spanned;
 
 #[derive(Copy, Clone, Debug, Deserialize)]
-#[serde(rename_all = "lowercase")]
-enum OutputType {
-    PPTokens,
+#[serde(rename_all = "snake_case")]
+enum ResultsCompare {
+    AssertPptokensLooseEqual,
 }
 
 #[derive(Copy, Clone, Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
-enum OutputCompare {
-    AssertPptokensLooseEqual,
+enum ResultsPrint {
+    PptokensToString,
 }
 
 #[derive(Debug, Deserialize)]
@@ -47,7 +47,8 @@ struct Config {
 #[derive(Debug, Deserialize)]
 struct Suite {
     passes: Vec<String>,
-    output_compare: OutputCompare,
+    results_compare: ResultsCompare,
+    results_print: Option<ResultsPrint>,
     cases: Vec<Case>,
 
     #[serde(skip)]
@@ -110,16 +111,29 @@ impl Case {
         state
     }
 
-    fn compare_input_output(&self, suite: &Suite, input: TUState, output: TUState) {
+    fn compare_input_output(&self, suite: &Suite, input: &TUState, output: &TUState) {
         use denuocc::token::assert_pptokens_loose_equal;
-        use OutputCompare::*;
+        use ResultsCompare::*;
 
-        match suite.output_compare {
+        match suite.results_compare {
             AssertPptokensLooseEqual => {
-                let input = input.into_pptokens().unwrap();
-                let output = output.into_pptokens().unwrap();
-                assert_pptokens_loose_equal(&input, &output);
+                let input = input.as_pptokens().unwrap();
+                let output = output.as_pptokens().unwrap();
+                assert_pptokens_loose_equal(input, output);
             }
+        }
+    }
+
+    fn print_result(&self, suite: &Suite, result: &TUState) {
+        use denuocc::token::PPToken;
+        use ResultsPrint::*;
+
+        if suite.results_print.is_none() {
+            return;
+        }
+
+        match suite.results_print.unwrap() {
+            PptokensToString => println!("{}", PPToken::to_string(result.as_pptokens().unwrap())),
         }
     }
 
@@ -128,7 +142,9 @@ impl Case {
 
         if self.output.is_some() {
             let output_result = self.run_output(suite);
-            self.compare_input_output(suite, input_result, output_result);
+            self.print_result(suite, &input_result);
+            self.print_result(suite, &output_result);
+            self.compare_input_output(suite, &input_result, &output_result);
         }
     }
 }
