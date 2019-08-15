@@ -83,6 +83,8 @@ impl Case {
             .map(|m| format!("{}", m))
             .collect::<Vec<_>>();
 
+        self.print_result(suite, &state);
+
         if let Some(ref expected_messages) = self.messages {
             assert_eq!(&messages, expected_messages);
         } else if !messages.is_empty() {
@@ -105,6 +107,8 @@ impl Case {
         let mut tu = driver.run_one("<case>").unwrap();
         let state = tu.take_state().unwrap();
         let messages = tu.take_messages();
+
+        self.print_result(suite, &state);
 
         assert_eq!(messages.len(), 0);
 
@@ -142,8 +146,6 @@ impl Case {
 
         if self.output.is_some() {
             let output_result = self.run_output(suite);
-            self.print_result(suite, &input_result);
-            self.print_result(suite, &output_result);
             self.compare_input_output(suite, &input_result, &output_result);
         }
     }
