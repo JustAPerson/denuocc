@@ -124,6 +124,7 @@ pub enum PPTokenKind {
     Whitespace,
     HeaderName,
     Identifier,
+    IdentifierNonExpandable,
     PPNumber,
     CharacterConstant,
     StringLiteral,
@@ -177,6 +178,12 @@ impl std::cmp::PartialEq for PPToken {
             (Whitespace, Whitespace) => self.value == rhs.value,
             (HeaderName, HeaderName) => self.value == rhs.value,
             (Identifier, Identifier) => self.value == rhs.value,
+            (IdentifierNonExpandable, IdentifierNonExpandable) => self.value == rhs.value,
+
+            // identifiers can also compare to non-expandable identifiers
+            (IdentifierNonExpandable, Identifier) => self.value == rhs.value,
+            (Identifier, IdentifierNonExpandable) => self.value == rhs.value,
+
             (PPNumber, PPNumber) => self.value == rhs.value,
             (CharacterConstant, CharacterConstant) => self.value == rhs.value,
             (StringLiteral, StringLiteral) => self.value == rhs.value,

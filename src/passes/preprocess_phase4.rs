@@ -20,25 +20,31 @@ use std::vec::IntoIter;
 use crate::error::Result;
 use crate::message::MessageKind::{
     ExpectedFound, Phase4DefineOperator, Phase4ExpectedNewline, Phase4ExpectedPPToken,
-    Phase4InvalidDirective, Phase4MacroArity, Phase4MacroArityVararg, Phase4MacroType,
-    Phase4UnexpectedDirective,
+    Phase4InvalidDirective, Phase4MacroArity, Phase4MacroArityVararg, Phase4UnexpectedDirective,
 };
 use crate::passes::helper::args_assert_count;
 use crate::token::{PPToken, PPTokenKind};
 use crate::tu::{TUCtx, TUState};
 
 #[derive(Clone, Debug)]
+struct MacroObject {
+    name: String,
+    replacements: Vec<PPToken>,
+}
+
+#[derive(Clone, Debug)]
+struct MacroFunction {
+    name: String,
+    replacements: Vec<PPToken>,
+    params: Vec<String>,
+    vararg: bool,
+}
+
+#[derive(Clone, Debug)]
 enum MacroDef {
-    Object {
-        name: String,
-        replacements: Vec<PPToken>,
-    },
-    Function {
-        name: String,
-        replacements: Vec<PPToken>,
-        params: Vec<String>,
-        vararg: bool,
-    },
+    Object(MacroObject),
+    Function(MacroFunction),
+    NonExpandable,
 }
 
 struct PPTokenStream<'a, 'b> {
@@ -47,6 +53,9 @@ struct PPTokenStream<'a, 'b> {
     tokens: IntoIter<PPToken>,
     macrodefs: HashMap<String, MacroDef>,
     output: Vec<PPToken>,
+
+    depth: usize,
+    did_expand_macro: bool,
 }
 
 impl<'a, 'b> PPTokenStream<'a, 'b> {
@@ -56,6 +65,8 @@ impl<'a, 'b> PPTokenStream<'a, 'b> {
             tokens: tokens.into_iter(),
             macrodefs: HashMap::new(),
             output: Vec::new(),
+            depth: 0,
+            did_expand_macro: false,
         }
     }
 
@@ -192,7 +203,6 @@ impl<'a, 'b> PPTokenStream<'a, 'b> {
         enum State {
             Arg,
             Vararg,
-            Finished,
         }
 
         let mut state = if num_params > 0 {
@@ -203,39 +213,57 @@ impl<'a, 'b> PPTokenStream<'a, 'b> {
         let mut arg = Vec::new();
 
         let mut last_token = None;
+        let mut finished = false;
+        let mut depth = 0;
         while let Some(token) = iter.next() {
-            match (state, token.as_str()) {
-                (State::Arg, ",") => {
+            match (state, token.as_str(), depth) {
+                // not yet encountered a nested function
+                (State::Arg, ",", 0) => {
                     let arg_done = std::mem::replace(&mut arg, Vec::new());
                     args.push(arg_done);
+
                     if vararg && args.len() >= num_params {
                         state = State::Vararg;
                     }
                 }
-                (State::Arg, ")") => {
-                    state = State::Finished;
+                (State::Arg, ")", 0) => {
                     let arg_done = std::mem::replace(&mut arg, Vec::new());
                     args.push(arg_done);
+
+                    finished = true;
                     break;
                 }
-                (State::Arg, _) => {
+                (State::Arg, "(", _) => {
+                    depth += 1;
+                    arg.push(token.clone());
+                }
+                (State::Arg, ")", _) => {
+                    depth -= 1;
+                    arg.push(token.clone());
+                }
+                (State::Arg, _, _) => {
                     arg.push(token.clone());
                 }
 
-                (State::Vararg, ")") => {
-                    state = State::Finished;
+                (State::Vararg, ")", 0) => {
+                    finished = true;
                     break;
                 }
-                (State::Vararg, _) => {
+                (State::Vararg, "(", _) => {
+                    depth += 1;
                     vararg_arg.push(token.clone());
                 }
-
-                // should have broken out of loop already
-                (State::Finished, _) => unreachable!(),
+                (State::Vararg, ")", d) if d != 0 => {
+                    depth -= 1;
+                    vararg_arg.push(token.clone());
+                }
+                (State::Vararg, _, _) => {
+                    vararg_arg.push(token.clone());
+                }
             }
             last_token = Some(token);
         }
-        if state != State::Finished {
+        if !finished {
             unimplemented!("what do i call this error? {:#?}", last_token) // TODO NYI
         }
 
@@ -244,75 +272,58 @@ impl<'a, 'b> PPTokenStream<'a, 'b> {
 
     fn expand_macro_function(
         &mut self,
-        name: String,
+        macrodef: MacroFunction,
         iter: &mut std::vec::IntoIter<PPToken>,
     ) -> Vec<PPToken> {
+        // consume left-paren following function name
         let lparen = iter.next().unwrap();
         debug_assert_eq!(lparen.as_str(), "(");
 
-        let (vararg, params, replacements) = {
-            if let MacroDef::Function {
-                vararg,
-                ref params,
-                ref replacements,
-                ..
-            } = self.macrodefs[&name]
-            {
-                (vararg, params.clone(), replacements.clone())
-            } else {
-                // this function is only called for MacroDef::Functions
-                unreachable!();
-            }
-        };
-
-        let (mut args, vararg_arg) = self.match_macro_function(params.len(), vararg, iter);
+        let (mut args, vararg_arg) =
+            self.match_macro_function(macrodef.params.len(), macrodef.vararg, iter);
         args = args
             .into_iter()
             .map(|arg| self.expand_macros(arg))
             .collect();
 
-        dbg!(vararg);
-        dbg!(&args);
-        if vararg && args.len() < params.len() {
+        if macrodef.vararg && args.len() < macrodef.params.len() {
             self.tuctx.emit_message(
                 lparen.location.clone(),
                 Phase4MacroArityVararg {
-                    name: name.clone(),
-                    expected: params.len(),
+                    name: macrodef.name.clone(),
+                    expected: macrodef.params.len(),
                     found: args.len(),
                 },
             );
-        } else if !vararg
-            && (args.len() + (if vararg_arg.is_empty() { 0 } else { 1 })) != params.len()
+        } else if !macrodef.vararg
+            && (args.len() + (if vararg_arg.is_empty() { 0 } else { 1 })) != macrodef.params.len()
         {
             self.tuctx.emit_message(
                 lparen.location.clone(),
                 Phase4MacroArity {
-                    name: name.clone(),
-                    expected: params.len(),
+                    name: macrodef.name.clone(),
+                    expected: macrodef.params.len(),
                     found: args.len(),
                 },
             );
         }
 
         let mut old: HashMap<String, MacroDef> = HashMap::new();
-        for param in &params {
+        for param in &macrodef.params {
             if self.macrodefs.contains_key(param) {
                 old.insert(param.to_owned(), self.macrodefs[param].clone());
             }
         }
 
-        for (name, rep) in params.iter().zip(args) {
+        for (name, rep) in macrodef.params.iter().zip(args) {
             self.macrodefs_insert_object(name, rep);
         }
         self.macrodefs_insert_object("__VA_ARGS__", vararg_arg);
 
-        let macrodef = self.macrodefs.remove(&name).unwrap();
-        let output = self.expand_macros(replacements);
-        self.macrodefs.insert(name.clone(), macrodef);
+        let output = self.expand_macros_restricted(&macrodef.name, macrodef.replacements);
 
         self.macrodefs.remove("__VA_ARGS__");
-        for name in &params {
+        for name in &macrodef.params {
             self.macrodefs.remove(name);
         }
         for (name, def) in old {
@@ -322,9 +333,26 @@ impl<'a, 'b> PPTokenStream<'a, 'b> {
         output
     }
 
+    fn expand_macros_restricted(&mut self, name: &str, input: Vec<PPToken>) -> Vec<PPToken> {
+        let mut macrodef = MacroDef::NonExpandable;
+
+        // temporarily set macrodefs[name] = NonExpandable for the scope of this macro
+        std::mem::swap(&mut macrodef, self.macrodefs.get_mut(name).unwrap());
+        let output = self.expand_macros(input);
+        std::mem::swap(&mut macrodef, self.macrodefs.get_mut(name).unwrap());
+
+        output
+    }
+
     fn expand_macros(&mut self, input: Vec<PPToken>) -> Vec<PPToken> {
         // TODO optimize remove some of these output vecs, just use self.output
         // do after more tests in place
+
+        println!("{}expand_macros() input {}", "  ".repeat(self.depth), PPToken::to_string(&input));
+
+        self.depth += 1;
+        assert!(self.depth < 32);
+
         let mut output = Vec::new();
         let mut iter = input.into_iter();
 
@@ -333,61 +361,71 @@ impl<'a, 'b> PPTokenStream<'a, 'b> {
                 output.push(token);
                 continue;
             }
-            let macrodef = &self.macrodefs[&token.value];
 
-            match macrodef {
-                MacroDef::Object { name, .. }
-                    if iter.as_slice().get(0).map(|t| t.as_str()) == Some("(") =>
-                {
-                    self.tuctx.emit_message(
-                        token.location,
-                        Phase4MacroType {
-                            name: name.clone(),
-                            defined: "object",
-                            used: "function",
-                        },
-                    );
-                }
-                MacroDef::Function { name, .. }
-                    if iter.as_slice().get(0).map(|t| t.as_str()) != Some("(") =>
-                {
-                    self.tuctx.emit_message(
-                        token.location,
-                        Phase4MacroType {
-                            name: name.clone(),
-                            defined: "function",
-                            used: "object",
-                        },
-                    );
-                }
+            match &self.macrodefs[&token.value] {
+                MacroDef::Object(object) => {
+                    let name = object.name.clone();
+                    let replacements = object.replacements.clone();
 
-                MacroDef::Object { replacements, .. } => {
-                    // let replacements =
-                    // self.expand_macros(replacements.clone());
-                    let replacements = replacements.clone();
-                    output.append(&mut self.expand_macros(replacements));
-                }
-                MacroDef::Function { name, .. } => {
-                    let name = name.clone();
-                    output.append(&mut self.expand_macro_function(name, &mut iter));
+                    println!("{}expand_macros() found object {}", "  ".repeat(self.depth), &name);
 
-                    // match_macro_function(), called by
-                    // expand_macro_function(),
-                    // will take care of the closing paren for us
+                    let mut expanded = self.expand_macros_restricted(&name, replacements);
+                    output.append(&mut expanded);
+
+                    self.did_expand_macro = true;
+                }
+                MacroDef::Function(function)
+                    if iter.as_slice().get(0).map(|t| t.as_str()) == Some("(")
+                    => {
+                    // self.expand_macro_function will take care of opening and closing parens
+                    println!("{}expand_macros() found function {}", "  ".repeat(self.depth), &function.name);
+
+                    output.append(&mut self.expand_macro_function(function.clone(), &mut iter));
+
+                    self.did_expand_macro = true;
+                }
+                MacroDef::NonExpandable => {
+                    // this token is the name of a macro currently being
+                    // expanded. According to ISO 9899:2018 6.10.3.4.2,
+                    // this token may never be considered for expansion ever
+                    // again
+                    output.push(PPToken {
+                        kind: PPTokenKind::IdentifierNonExpandable,
+                        value: token.value,
+                        location: token.location,
+                    });
+                }
+                _ => {
+                    output.push(token);
                 }
             }
         }
 
+        self.depth -= 1;
         output
+    }
+
+    fn expand_macros_repeatedly(&mut self, mut input: Vec<PPToken>) -> Vec<PPToken> {
+        loop {
+            self.did_expand_macro = false;
+
+            input = self.expand_macros(input);
+
+            if !self.did_expand_macro {
+                break;
+            }
+        }
+
+        input
     }
 
     fn macrodefs_insert_object(&mut self, name: &str, replacements: Vec<PPToken>) {
         self.macrodefs.insert(
             name.to_owned(),
-            MacroDef::Object {
+            MacroDef::Object(MacroObject {
                 name: name.to_owned(),
                 replacements,
-            },
+            }),
         );
     }
 
@@ -400,7 +438,7 @@ impl<'a, 'b> PPTokenStream<'a, 'b> {
             "if" => {
                 let mut line = self.skip_until_newline();
                 line = self.expand_defined_operator(line);
-                line = self.expand_macros(line);
+                line = self.expand_macros_repeatedly(line);
                 line = line.into_iter().skip_while(|t| t.is_whitespace()).collect();
                 // TODO parse
             }
@@ -517,17 +555,19 @@ impl<'a, 'b> PPTokenStream<'a, 'b> {
             let replacements = self.skip_until_newline();
             self.macrodefs.insert(
                 name.clone(),
-                MacroDef::Function {
+                MacroDef::Function(MacroFunction {
                     name,
                     replacements,
                     params,
                     vararg,
-                },
+                }),
             );
         } else {
             let replacements = self.skip_until_newline();
-            self.macrodefs
-                .insert(name.clone(), MacroDef::Object { name, replacements });
+            self.macrodefs.insert(
+                name.clone(),
+                MacroDef::Object(MacroObject { name, replacements }),
+            );
         }
     }
 
@@ -596,7 +636,7 @@ impl<'a, 'b> PPTokenStream<'a, 'b> {
                 }
             } else if self.peek().kind != PPTokenKind::EndOfFile {
                 let mut line = self.skip_until_newline();
-                line = self.expand_macros(line);
+                line = self.expand_macros_repeatedly(line);
                 self.output.append(&mut line);
             } else {
                 // EndOfFile

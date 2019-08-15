@@ -67,6 +67,13 @@ output = "def abcdef"
 
 [[suites.phase4.cases]]
 input = """
+#define z z[0]
+z
+"""
+output = "z[0]"
+
+[[suites.phase4.cases]]
+input = """
 #define test()
 test()
 """
@@ -86,10 +93,7 @@ input = """
 object(3)
 func
 """
-messages = [
-  "<case>:3:0: `object` was defined as object macro but is being used as function macro",
-  "<case>:4:0: `func` was defined as function macro but is being used as object macro"
-]
+output = "value(3) func"
 
 [[suites.phase4.cases]]
 input = """
@@ -108,6 +112,13 @@ add(1,2,3)
 messages = [
   "<case>:2:3: `add` expects exactly 2 arguments; found 3"
 ]
+
+[[suites.phase4.cases]]
+input = """
+#define add(a, b) a + b
+add(add(1,2), 3)
+"""
+output = "1 + 2 + 3"
 
 [[suites.phase4.cases]]
 input = """
@@ -199,6 +210,24 @@ messages = ["<case>:1:7: expected `Identifier` token; found `Whitespace`"]
 
 [[suites.phase4.cases]]
 input = '''
+#define hash_hash # ## #
+#define mkstr(a) # a
+#define in_between(a) mkstr(a)
+#define join(c, d) in_between(c hash_hash d)
+join(x, y) // equivalent to "x ## y"
+'''
+output = '"x ## y"'
+
+[[suites.phase4.cases]]
+input = """
+#define m(a) a(w)
+#define w 0,1
+m(m)
+"""
+output = "m(0,1)"
+
+[[suites.phase4.cases]]
+input = '''
 #define x 3
 #define f(a) f(x * (a))
 #undef x
@@ -225,6 +254,42 @@ f(2 * (2+(3,4)-0,1)) | f(2 * (\~{ } 5)) & f(2 * (0,1))^m(0,1);
 int i[] = { 1, 23, 4, 5, };
 char c[2][6] = { "hello", "" };
 '''
+
+
+################################################################################
+# Random examples I found online
+#
+# https://blog.robertelder.org/7-weird-old-things-about-the-c-preprocessor/
+# http://archive.is/h2tfN
+################################################################################
+
+[[suites.phase4.cases]]
+input = """
+#define function() 123
+#define concat(a,b) a ## b
+concat(func,tion)()
+"""
+output = "123"
+
+[[suites.phase4.cases]]
+input = """
+#define boo() 123
+#define foo(y) boo y )
+#define open (
+foo(open)
+"""
+output = "123"
+
+
+[[suites.phase4.cases]]
+input = """
+#define boo() 123
+#define foo(x) x #x
+
+foo(boo())
+"""
+output = '123 "boo()"'
+
 
 ################################################################################
 # If directives
