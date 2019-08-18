@@ -68,7 +68,7 @@ struct Case {
 
 impl Case {
     fn run_input(&self, suite: &Suite) -> TUState {
-        let mut driver = denuocc::Driver::new();
+        let mut driver = Driver::new();
         driver.add_input_str("<case>", self.input.get_ref());
 
         for pass in &suite.passes {
@@ -102,7 +102,7 @@ impl Case {
 
         for pass in &suite.passes {
             let arg = format!("--pass={}", pass);
-            driver.parse_args_from_str(&[arg]);
+            driver.parse_args_from_str(&[arg]).unwrap();
         }
 
         let mut tu = driver.run_one("<case>").unwrap();
@@ -228,7 +228,7 @@ fn main() -> Result<(), std::io::Error> {
 
     let args: Vec<String> = std::env::args().collect();
     let opts = test::parse_opts(&args).unwrap().unwrap();
-    test::run_tests_console(&opts, tests);
+    test::run_tests_console(&opts, tests).unwrap();
 
     Ok(())
 }

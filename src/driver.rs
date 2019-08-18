@@ -220,6 +220,6 @@ mod test {
     #[should_panic(expected = "input name not found")]
     pub fn test_driver_run_one_missing_input() {
         let mut driver = Driver::new();
-        driver.run_one("missing");
+        driver.run_one("missing").unwrap();
     }
 }
