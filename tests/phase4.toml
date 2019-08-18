@@ -209,6 +209,7 @@ messages = ["<case>:1:7: expected `Identifier` token; found `Whitespace`"]
 # test cases from the standard
 
 [[suites.phase4.cases]]
+ignored = true
 input = '''
 #define hash_hash # ## #
 #define mkstr(a) # a
@@ -227,6 +228,7 @@ m(m)
 output = "m(0,1)"
 
 [[suites.phase4.cases]]
+ignored = true
 input = '''
 #define x 3
 #define f(a) f(x * (a))
@@ -264,6 +266,7 @@ char c[2][6] = { "hello", "" };
 ################################################################################
 
 [[suites.phase4.cases]]
+ignored = true
 input = """
 #define function() 123
 #define concat(a,b) a ## b
@@ -272,6 +275,7 @@ concat(func,tion)()
 output = "123"
 
 [[suites.phase4.cases]]
+ignored = true
 input = """
 #define boo() 123
 #define foo(y) boo y )
@@ -282,6 +286,7 @@ output = "123"
 
 
 [[suites.phase4.cases]]
+ignored = true
 input = """
 #define boo() 123
 #define foo(x) x #x

@@ -60,6 +60,7 @@ struct Case {
     input: Spanned<String>,
     output: Option<String>,
     messages: Option<Vec<String>>,
+    ignored: Option<bool>,
 
     #[serde(skip)]
     line: usize,
@@ -192,7 +193,7 @@ fn read_toml(
                         num_cases,
                         case.line
                     )),
-                    ignore: false,
+                    ignore: case.ignored.unwrap_or(false),
                     should_panic: ShouldPanic::No,
                     allow_fail: false,
                 },
