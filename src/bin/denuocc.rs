@@ -16,6 +16,7 @@
 use denuocc::Driver;
 
 fn main() {
+    env_logger::init();
     let mut driver = Driver::default();
 
     // TODO unwrap

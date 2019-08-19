@@ -17,6 +17,8 @@
 use std::collections::HashMap;
 use std::vec::IntoIter;
 
+use log::trace;
+
 use crate::error::Result;
 use crate::message::MessageKind::{
     ExpectedFound, Phase4DefineOperator, Phase4ExpectedNewline, Phase4ExpectedPPToken,
@@ -348,7 +350,11 @@ impl<'a, 'b> PPTokenStream<'a, 'b> {
         // TODO optimize remove some of these output vecs, just use self.output
         // do after more tests in place
 
-        println!("{}expand_macros() input {}", "  ".repeat(self.depth), PPToken::to_string(&input));
+        trace!(
+            "{}expand_macros() input {}",
+            "  ".repeat(self.depth),
+            PPToken::to_string(&input)
+        );
 
         self.depth += 1;
         assert!(self.depth < 32);
@@ -367,7 +373,11 @@ impl<'a, 'b> PPTokenStream<'a, 'b> {
                     let name = object.name.clone();
                     let replacements = object.replacements.clone();
 
-                    println!("{}expand_macros() found object {}", "  ".repeat(self.depth), &name);
+                    trace!(
+                        "{}expand_macros() found object {}",
+                        "  ".repeat(self.depth),
+                        &name
+                    );
 
                     let mut expanded = self.expand_macros_restricted(&name, replacements);
                     output.append(&mut expanded);
@@ -378,7 +388,11 @@ impl<'a, 'b> PPTokenStream<'a, 'b> {
                     if iter.as_slice().get(0).map(|t| t.as_str()) == Some("(")
                     => {
                     // self.expand_macro_function will take care of opening and closing parens
-                    println!("{}expand_macros() found function {}", "  ".repeat(self.depth), &function.name);
+                    trace!(
+                        "{}expand_macros() found function {}",
+                        "  ".repeat(self.depth),
+                        &function.name
+                    );
 
                     output.append(&mut self.expand_macro_function(function.clone(), &mut iter));
 
@@ -389,6 +403,11 @@ impl<'a, 'b> PPTokenStream<'a, 'b> {
                     // expanded. According to ISO 9899:2018 6.10.3.4.2,
                     // this token may never be considered for expansion ever
                     // again
+                    trace!(
+                        "{}expand_macros() found non-expandable {}",
+                        "  ".repeat(self.depth),
+                        &token.value
+                    );
                     output.push(PPToken {
                         kind: PPTokenKind::IdentifierNonExpandable,
                         value: token.value,
@@ -406,6 +425,9 @@ impl<'a, 'b> PPTokenStream<'a, 'b> {
     }
 
     fn expand_macros_repeatedly(&mut self, mut input: Vec<PPToken>) -> Vec<PPToken> {
+        trace!("expand_macros_repeatedly()");
+        self.depth += 1;
+
         loop {
             self.did_expand_macro = false;
 
@@ -416,10 +438,44 @@ impl<'a, 'b> PPTokenStream<'a, 'b> {
             }
         }
 
+        self.depth -= 1;
+
         input
     }
 
+    fn macrodefs_insert_function(
+        &mut self,
+        name: &str,
+        params: Vec<String>,
+        vararg: bool,
+        replacements: Vec<PPToken>,
+    ) {
+        trace!(
+            "{}macrodefs_insert_object() name={:?} replacements={:?}",
+            "  ".repeat(self.depth),
+            name,
+            PPToken::to_string(&replacements)
+        );
+
+        self.macrodefs.insert(
+            name.to_owned(),
+            MacroDef::Function(MacroFunction {
+                name: name.to_owned(),
+                params,
+                vararg,
+                replacements,
+            }),
+        );
+    }
+
     fn macrodefs_insert_object(&mut self, name: &str, replacements: Vec<PPToken>) {
+        trace!(
+            "{}macrodefs_insert_object() name={:?} replacements={:?}",
+            "  ".repeat(self.depth),
+            name,
+            PPToken::to_string(&replacements)
+        );
+
         self.macrodefs.insert(
             name.to_owned(),
             MacroDef::Object(MacroObject {
@@ -553,21 +609,10 @@ impl<'a, 'b> PPTokenStream<'a, 'b> {
             }
 
             let replacements = self.skip_until_newline();
-            self.macrodefs.insert(
-                name.clone(),
-                MacroDef::Function(MacroFunction {
-                    name,
-                    replacements,
-                    params,
-                    vararg,
-                }),
-            );
+            self.macrodefs_insert_function(&name, params, vararg, replacements);
         } else {
             let replacements = self.skip_until_newline();
-            self.macrodefs.insert(
-                name.clone(),
-                MacroDef::Object(MacroObject { name, replacements }),
-            );
+            self.macrodefs_insert_object(&name, replacements);
         }
     }
 
@@ -617,6 +662,8 @@ impl<'a, 'b> PPTokenStream<'a, 'b> {
             if self.peek().kind == PPTokenKind::Punctuator && self.peek().as_str() == "#" {
                 self.skip_token();
                 self.skip_whitespace();
+
+                trace!("execute_group() directive={:?}", self.peek().as_str());
                 match self.peek().as_str() {
                     "if" | "ifdef" | "ifndef" => self.execute_if_section(),
                     "elif" | "else" | "endif" => self.tuctx.emit_message(
@@ -636,9 +683,12 @@ impl<'a, 'b> PPTokenStream<'a, 'b> {
                 }
             } else if self.peek().kind != PPTokenKind::EndOfFile {
                 let mut line = self.skip_until_newline();
+                trace!("execute_group() text line={:?}", PPToken::to_string(&line));
+
                 line = self.expand_macros_repeatedly(line);
                 self.output.append(&mut line);
             } else {
+                trace!("execute_group() end of file");
                 // EndOfFile
                 break;
             }

@@ -213,6 +213,11 @@ fn read_toml(
 }
 
 fn main() -> Result<(), std::io::Error> {
+    env_logger::Builder::from_default_env()
+        .default_format_timestamp(false)
+        .is_test(true)
+        .init();
+
     let mut tests = Vec::new();
     // PWD is project root
 
