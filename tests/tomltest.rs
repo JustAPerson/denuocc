@@ -24,7 +24,7 @@ use std::sync::Arc;
 use denuocc::tu::TUState;
 use denuocc::Driver;
 use serde_derive::Deserialize;
-use test::{ShouldPanic, TestDesc, TestDescAndFn, TestFn, TestName};
+use test::{TestDesc, TestDescAndFn, TestFn, TestName};
 use toml::Spanned;
 
 #[derive(Copy, Clone, Debug, Deserialize)]
@@ -44,6 +44,27 @@ struct Config {
     suites: HashMap<String, Suite>,
 }
 
+#[derive(Clone, Debug, Deserialize)]
+#[serde(untagged)]
+enum ShouldPanic {
+    Bool(bool),
+    Message(String),
+}
+
+impl std::convert::From<crate::ShouldPanic> for test::ShouldPanic {
+    fn from(sp: crate::ShouldPanic) -> test::ShouldPanic {
+        match sp {
+            ShouldPanic::Bool(true) => test::ShouldPanic::Yes,
+            ShouldPanic::Bool(false) => test::ShouldPanic::No,
+            ShouldPanic::Message(s) => {
+                let s = s.into_boxed_str();
+                let s = Box::leak::<'static>(s);
+                test::ShouldPanic::YesWithMessage(s)
+            }
+        }
+    }
+}
+
 #[derive(Debug, Deserialize)]
 struct Suite {
     passes: Vec<String>,
@@ -61,6 +82,7 @@ struct Case {
     output: Option<String>,
     messages: Option<Vec<String>>,
     ignored: Option<bool>,
+    should_panic: Option<ShouldPanic>,
 
     #[serde(skip)]
     line: usize,
@@ -194,7 +216,11 @@ fn read_toml(
                         case.line
                     )),
                     ignore: case.ignored.unwrap_or(false),
-                    should_panic: ShouldPanic::No,
+                    should_panic: case
+                        .should_panic
+                        .clone()
+                        .unwrap_or(ShouldPanic::Bool(false))
+                        .into(),
                     allow_fail: false,
                 },
                 testfn: TestFn::DynTestFn({
