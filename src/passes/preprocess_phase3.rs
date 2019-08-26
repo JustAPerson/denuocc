@@ -132,6 +132,9 @@ pub fn preprocess_phase3<'a>(tuctx: &mut TUCtx<'a>, args: &[String]) -> Result<(
         i += len;
 
         if kind == PPTokenKind::Other && slice.starts_with("'") {
+            // A properly terminated string would've matched the StringLiteral
+            // regex, thus we know this string is unterminated
+
             // TODO move to phase7
             tuctx.emit_message(
                 first.loc.clone(),

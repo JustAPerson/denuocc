@@ -36,7 +36,7 @@ output = ""
 
 [[suites.phase4.cases]]
 input = "#define\n"
-messages = ["<case>:0:0: expected `Identifier` token; found `EndOfFile`"]
+messages = ["<case>:0:0: expected `Identifier` token; found `EndOfFile` token"]
 
 [[suites.phase4.cases]]
 input = """
@@ -211,13 +211,13 @@ output = "b a"
 input = """
 #undef 3
 """
-messages = ["<case>:1:7: expected `Identifier` token; found `PPNumber`"]
+messages = ["<case>:1:7: expected `Identifier` token; found `PPNumber` token"]
 
 [[suites.phase4.cases]]
 input = """
 #undef 
 """
-messages = ["<case>:1:7: expected `Identifier` token; found `Whitespace`"]
+messages = ["<case>:1:7: expected `Identifier` token; found `Whitespace` token"]
 
 # test cases from the standard
 

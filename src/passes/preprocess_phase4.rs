@@ -21,9 +21,10 @@ use log::trace;
 
 use crate::error::Result;
 use crate::message::MessageKind::{
-    ExpectedFound, Phase4DefineOperator, Phase4ExpectedNewline, Phase4ExpectedPPToken,
-    Phase4InvalidDirective, Phase4MacroArity, Phase4MacroArityVararg, Phase4UnexpectedDirective,
+    ExpectedFound, Phase4DefineOperator, Phase4InvalidDirective, Phase4MacroArity,
+    Phase4MacroArityVararg, Phase4UnexpectedDirective,
 };
+use crate::message::MessagePart;
 use crate::passes::helper::args_assert_count;
 use crate::token::{PPToken, PPTokenKind};
 use crate::tu::{TUCtx, TUState};
@@ -385,8 +386,8 @@ impl<'a, 'b> PPTokenStream<'a, 'b> {
                     self.did_expand_macro = true;
                 }
                 MacroDef::Function(function)
-                    if iter.as_slice().get(0).map(|t| t.as_str()) == Some("(")
-                    => {
+                    if iter.as_slice().get(0).map(|t| t.as_str()) == Some("(") =>
+                {
                     // self.expand_macro_function will take care of opening and closing parens
                     trace!(
                         "{}expand_macros() found function {}",
@@ -512,9 +513,9 @@ impl<'a, 'b> PPTokenStream<'a, 'b> {
         if self.peek().kind != PPTokenKind::Identifier {
             self.tuctx.emit_message(
                 self.peek().location.clone(),
-                Phase4ExpectedPPToken {
-                    expected: PPTokenKind::Identifier,
-                    found: self.peek().kind,
+                ExpectedFound {
+                    expected: MessagePart::PPToken(PPTokenKind::Identifier),
+                    found: MessagePart::PPToken(self.peek().kind.into()),
                 },
             );
 
@@ -565,8 +566,8 @@ impl<'a, 'b> PPTokenStream<'a, 'b> {
                         self.tuctx.emit_message(
                             token.location,
                             ExpectedFound {
-                                expected: "identifier or `...`".to_owned(),
-                                found: format!("`{}`", token.value),
+                                expected: MessagePart::Plain("identifier or `...`".to_owned()),
+                                found: MessagePart::Plain(format!("`{}`", token.value)),
                             },
                         );
 
@@ -581,8 +582,8 @@ impl<'a, 'b> PPTokenStream<'a, 'b> {
                         self.tuctx.emit_message(
                             token.location,
                             ExpectedFound {
-                                expected: "`,`".to_owned(),
-                                found: format!("`{}`", token.value),
+                                expected: MessagePart::Plain("`,`".to_owned()),
+                                found: MessagePart::Plain(format!("`{}`", token.value)),
                             },
                         );
 
@@ -597,8 +598,8 @@ impl<'a, 'b> PPTokenStream<'a, 'b> {
                         self.tuctx.emit_message(
                             token.location,
                             ExpectedFound {
-                                expected: "`)`".to_owned(),
-                                found: format!("`{}`", token.value),
+                                expected: MessagePart::Plain("`)`".to_owned()),
+                                found: MessagePart::Plain(format!("`{}`", token.value)),
                             },
                         );
 
@@ -624,9 +625,9 @@ impl<'a, 'b> PPTokenStream<'a, 'b> {
             // invalid directive
             self.tuctx.emit_message(
                 self.peek().location.clone(),
-                Phase4ExpectedPPToken {
-                    expected: PPTokenKind::Identifier,
-                    found: self.peek().kind,
+                ExpectedFound {
+                    expected: MessagePart::PPToken(PPTokenKind::Identifier),
+                    found: MessagePart::PPToken(self.peek().kind),
                 },
             );
 
@@ -641,8 +642,9 @@ impl<'a, 'b> PPTokenStream<'a, 'b> {
         if self.peek().as_str() != "\n" {
             self.tuctx.emit_message(
                 self.peek().location.clone(),
-                Phase4ExpectedNewline {
-                    found: self.peek().kind,
+                ExpectedFound {
+                    expected: MessagePart::Plain("newline".to_owned()),
+                    found: MessagePart::PPToken(self.peek().kind),
                 },
             );
 

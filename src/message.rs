@@ -24,7 +24,26 @@ pub enum Severity {
     Error,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
+pub enum MessagePart {
+    Plain(String),
+    PPToken(PPTokenKind),
+    Directive(String),
+}
+
+impl std::fmt::Display for MessagePart {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        use MessagePart::*;
+
+        match self {
+            Plain(string) => write!(f, "{}", string),
+            PPToken(kind) => write!(f, "`{:?}` token", kind),
+            Directive(directive) => write!(f, "`{}` directive", directive),
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
 pub enum MessageKind {
     Phase1FileEndingWithBackslash,
     Phase3MissingTerminator {
@@ -37,13 +56,6 @@ pub enum MessageKind {
         directive: String,
     },
     Phase4DefineOperator,
-    Phase4ExpectedPPToken {
-        expected: PPTokenKind,
-        found: PPTokenKind,
-    },
-    Phase4ExpectedNewline {
-        found: PPTokenKind,
-    },
     Phase4MacroType {
         name: String,
         defined: &'static str,
@@ -60,8 +72,8 @@ pub enum MessageKind {
         found: usize,
     },
     ExpectedFound {
-        expected: String,
-        found: String,
+        expected: MessagePart,
+        found: MessagePart,
     },
 }
 
@@ -91,12 +103,6 @@ impl std::fmt::Display for Message {
             Phase4InvalidDirective { directive } => write!(f, "invalid directive `{}`", &directive),
             Phase4DefineOperator => {
                 write!(f, "expected identifier or left-paren after define operator")
-            }
-            Phase4ExpectedPPToken { expected, found } => {
-                write!(f, "expected `{:?}` token; found `{:?}`", &expected, &found)
-            }
-            Phase4ExpectedNewline { found } => {
-                write!(f, "expected newline; found `{:?}` token", &found)
             }
             Phase4MacroType {
                 name,
