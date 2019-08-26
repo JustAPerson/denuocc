@@ -22,7 +22,7 @@ use log::trace;
 use crate::error::Result;
 use crate::message::MessageKind::{
     ExpectedFound, Phase4DefineOperator, Phase4InvalidDirective, Phase4MacroArity,
-    Phase4MacroArityVararg, Phase4UnexpectedDirective,
+    Phase4UnexpectedDirective,
 };
 use crate::message::MessagePart;
 use crate::passes::helper::args_assert_count;
@@ -292,10 +292,11 @@ impl<'a, 'b> PPTokenStream<'a, 'b> {
         if macrodef.vararg && args.len() < macrodef.params.len() {
             self.tuctx.emit_message(
                 lparen.location.clone(),
-                Phase4MacroArityVararg {
+                Phase4MacroArity {
                     name: macrodef.name.clone(),
                     expected: macrodef.params.len(),
                     found: args.len(),
+                    vararg: true,
                 },
             );
         } else if !macrodef.vararg
@@ -307,6 +308,7 @@ impl<'a, 'b> PPTokenStream<'a, 'b> {
                     name: macrodef.name.clone(),
                     expected: macrodef.params.len(),
                     found: args.len(),
+                    vararg: false,
                 },
             );
         }

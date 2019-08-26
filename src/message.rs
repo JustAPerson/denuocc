@@ -56,20 +56,11 @@ pub enum MessageKind {
         directive: String,
     },
     Phase4DefineOperator,
-    Phase4MacroType {
-        name: String,
-        defined: &'static str,
-        used: &'static str,
-    },
     Phase4MacroArity {
         name: String,
         expected: usize,
         found: usize,
-    },
-    Phase4MacroArityVararg {
-        name: String,
-        expected: usize,
-        found: usize,
+        vararg: bool,
     },
     ExpectedFound {
         expected: MessagePart,
@@ -104,32 +95,23 @@ impl std::fmt::Display for Message {
             Phase4DefineOperator => {
                 write!(f, "expected identifier or left-paren after define operator")
             }
-            Phase4MacroType {
-                name,
-                defined,
-                used,
-            } => write!(
-                f,
-                "`{}` was defined as {} macro but is being used as {} macro",
-                name, defined, used
-            ),
             Phase4MacroArity {
                 name,
                 expected,
                 found,
+                vararg,
             } => write!(
                 f,
-                "`{}` expects exactly {} arguments; found {}",
-                name, expected, found
-            ),
-            Phase4MacroArityVararg {
+                "`{}` expects {} {} {}; found {}",
                 name,
+                if *vararg { "at least" } else { "exactly" },
                 expected,
-                found,
-            } => write!(
-                f,
-                "`{}` expects at least {} arguments; found {}",
-                name, expected, found
+                if *expected == 1 {
+                    "argument"
+                } else {
+                    "arguments"
+                },
+                found
             ),
             ExpectedFound { expected, found } => {
                 write!(f, "expected {}; found {}", expected, found)
