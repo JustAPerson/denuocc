@@ -24,7 +24,7 @@ use std::sync::Arc;
 use denuocc::tu::TUState;
 use denuocc::Driver;
 use serde_derive::Deserialize;
-use test::{TestDesc, TestDescAndFn, TestFn, TestName};
+use test::{TestDesc, TestDescAndFn, TestFn, TestName, TestType};
 use toml::Spanned;
 
 #[derive(Copy, Clone, Debug, Deserialize)]
@@ -222,6 +222,7 @@ fn read_toml(
                         .unwrap_or(ShouldPanic::Bool(false))
                         .into(),
                     allow_fail: false,
+                    test_type: TestType::UnitTest,
                 },
                 testfn: TestFn::DynTestFn({
                     let suite = Arc::clone(&suite);
@@ -258,8 +259,7 @@ fn main() -> Result<(), std::io::Error> {
     }
 
     let args: Vec<String> = std::env::args().collect();
-    let opts = test::parse_opts(&args).unwrap().unwrap();
-    test::run_tests_console(&opts, tests).unwrap();
+    test::test_main(args.as_slice(), tests, None);
 
     Ok(())
 }
