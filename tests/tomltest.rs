@@ -202,18 +202,24 @@ fn read_toml(
         // no longer need to modify Suite, so make an Arc
         let suite = Arc::new(suite);
 
-        let mut num_cases = 0;
+        // want test cases to sort by number correctly, so we need to zero-pad
+        // the case number. first need to calculate the number of necessary
+        // digits
+        let width = (cases.len() as f32).log10().ceil() as usize;
+
+        let mut index = 0;
         for mut case in cases {
             case.line = get_linenumber(&content, case.input.start());
 
             tests.push(TestDescAndFn {
                 desc: TestDesc {
                     name: TestName::DynTestName(format!(
-                        "{:?} suite={} case={} line={}",
+                        "{:?} suite={} case={:0width$} line={}",
                         &filename.as_os_str(),
                         &name,
-                        num_cases,
-                        case.line
+                        index,
+                        case.line,
+                        width = width,
                     )),
                     ignore: case.ignored.unwrap_or(false),
                     should_panic: case
@@ -232,7 +238,7 @@ fn read_toml(
                 }),
             });
 
-            num_cases += 1;
+            index += 1;
         }
     }
 
