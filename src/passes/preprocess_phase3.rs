@@ -97,6 +97,32 @@ fn find_match(input: &str, index: usize) -> &str {
     regex.find(input).unwrap().as_str()
 }
 
+/// Categorize the first token of the input string
+///
+/// Returns the slice containing the entire token plus its kind. This slice may
+/// be less than the input string if the input lexes as more than one token.
+///
+/// The input must be non-empty.
+pub fn lex_one_token(input: &str) -> (&str, PPTokenKind) {
+    // choose longest match
+    let mut matches: Vec<(&str, usize)> = REGEX_SET
+        .matches(input)
+        .iter()
+        .map(|i| (find_match(input, i), i)) // extract substring by rerunning regex
+        .collect::<Vec<_>>();
+
+    assert_ne!(matches.len(), 0);
+
+    // sort by length of match, breaking ties by choosing rules listed later
+    // in TOKEN_PATTERNS
+    matches.sort_by_key(|(s, i)| (s.len(), *i));
+
+    let &(slice, index) = matches.last().unwrap();
+    let kind = TOKEN_PATTERNS[index].1;
+
+    (slice, kind)
+}
+
 pub fn preprocess_phase3<'a>(tuctx: &mut TUCtx<'a>, args: &[String]) -> Result<()> {
     args_assert_count("preprocess_phase3", args, 0)?;
 
@@ -108,23 +134,7 @@ pub fn preprocess_phase3<'a>(tuctx: &mut TUCtx<'a>, args: &[String]) -> Result<(
     let mut output = Vec::new();
 
     while i < string.len() {
-        let slice = &string[i..];
-
-        // choose longest match
-        let mut matches: Vec<(&str, usize)> = REGEX_SET
-            .matches(slice)
-            .iter()
-            .map(|i| (find_match(slice, i), i)) // extract substring by rerunning regex
-            .collect::<Vec<_>>();
-
-        assert_ne!(matches.len(), 0);
-
-        // sort by length of match, breaking ties by choosing rules listed later
-        // in TOKEN_PATTERNS
-        matches.sort_by_key(|(s, i)| (s.len(), *i));
-
-        let &(slice, index) = matches.last().unwrap();
-        let kind = TOKEN_PATTERNS[index].1;
+        let (slice, kind) = lex_one_token(&string[i..]);
 
         let len = slice.len();
         let first = &tokens[i];
@@ -154,6 +164,7 @@ pub fn preprocess_phase3<'a>(tuctx: &mut TUCtx<'a>, args: &[String]) -> Result<(
             })
         }
     }
+
     output.push(PPToken {
         kind: PPTokenKind::EndOfFile,
         value: "".to_owned(),
