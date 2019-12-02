@@ -43,7 +43,7 @@ static TOKEN_PATTERNS: &[(&'static str, PPTokenKind)] = &[
             r"|(\\[0-7]{1,3})", // octal
             r"|(\\x[0-9a-f]+)", // hexadecimal
             r"|(\\.)",          // match any simple escape, verify them later TODO
-            r")+",              // close regex group and multiples
+            r")*?",             // close regex group and multiples (non greedy)
             r"'",               // closing single quote
         ),
         PPTokenKind::CharacterConstant,
@@ -53,11 +53,11 @@ static TOKEN_PATTERNS: &[(&'static str, PPTokenKind)] = &[
             r"^(u8|u|U|L)?",    // type specifiers
             "\"",               // opening double quote
             r"(",               // open regex group
-            r"[^'\\\n]",        // anything except single quote, backslash, or newline
+            r#"[^"\\\n]"#,      // anything except double quote, backslash, or newline
             r"|(\\[0-7]{1,3})", // octal
             r"|(\\x[0-9a-f]+)", // hexadecimal
             r"|(\\.)",          // match any simple escape, verify them later TODO
-            r")+",              // close regex group and multiples
+            r")*?",             // close regex group and multiples (non greedy)
             "\"",               // closing double quote
         ),
         PPTokenKind::StringLiteral,
@@ -69,7 +69,7 @@ static TOKEN_PATTERNS: &[(&'static str, PPTokenKind)] = &[
             // always have two matches of "ab" and "c" rather than one match of
             // "abc". Thus, we carefully order the patterns such that the longer
             // operators are first. This has no runtime performance cost. For a
-            // more legibile list of these operators, see
+            // more legible list of these operators, see
             // test::test_phase3_punctuator().
             r"^((\[)|(\])|(\()|(\))|(\{)|(\})|(\->)|(\+\+)|(\-\-)|(<=)|(>=)",
             r"|(==)|(!=)|(\&\&)|(\|\|)|(\?)|(;)|(\.\.\.)|(\*=)|(/=)|(%=)",
@@ -199,10 +199,12 @@ mod test {
         (output, messages)
     }
 
+    // StringLiteral is same basically
     #[test]
     fn test_phase3_characterconstant() {
         fn case(input: &str) {
             let (tokens, _) = phase3(input);
+            dbg!(&tokens);
             assert_eq!(tokens.len(), 2);
             assert_eq!(tokens[0].kind, PPTokenKind::CharacterConstant);
             assert_eq!(tokens[0].as_str(), input);
@@ -233,23 +235,28 @@ mod test {
         assert_eq!(tokens[0].kind, PPTokenKind::Whitespace);
 
         // TODO move these cases to a later stage
-        // case(r#"'\''"#);
-        // case(r#"'\"'"#);
-        // case(r#"'\?'"#);
-        // case(r#"'\\'"#);
-        // case(r#"'\a'"#);
-        // case(r#"'\b'"#);
-        // case(r#"'\f'"#);
-        // case(r#"'\n'"#);
-        // case(r#"'\r'"#);
-        // case(r#"'\t'"#);
-        // case(r#"'\v'"#);
-        // case(r#"'\x'"#);
+        case(r#"'\''"#);
+        case(r#"'\"'"#);
+        case(r#"'\?'"#);
+        case(r#"'\\'"#);
+        case(r#"'\a'"#);
+        case(r#"'\b'"#);
+        case(r#"'\f'"#);
+        case(r#"'\n'"#);
+        case(r#"'\r'"#);
+        case(r#"'\t'"#);
+        case(r#"'\v'"#);
+        case(r#"'\x'"#);
 
         case(r"'\0'");
         case(r"'\012'");
         case(r"'\09'");
         case(r"'\x01239'");
+
+        let (tokens, _) = phase3("'a' + 'b'");
+        assert_eq!(tokens.len(), 6);
+        assert_eq!(tokens[0].as_str(), "'a'");
+        assert_eq!(tokens[4].as_str(), "'b'");
     }
 
     #[test]
