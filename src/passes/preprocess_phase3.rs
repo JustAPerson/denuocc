@@ -22,7 +22,7 @@ use regex::{Regex, RegexSet};
 use crate::error::Result;
 use crate::message::MessageKind;
 use crate::passes::helper::args_assert_count;
-use crate::token::{CharToken, Location, PPToken, PPTokenKind, Position};
+use crate::token::{CharToken, DirectLocation, Location, PPToken, PPTokenKind, Position};
 use crate::tu::{TUCtx, TUState};
 
 static TOKEN_PATTERNS: &[(&'static str, PPTokenKind)] = &[
@@ -160,7 +160,7 @@ pub fn preprocess_phase3<'a>(tuctx: &mut TUCtx<'a>, args: &[String]) -> Result<(
             output.push(PPToken {
                 kind,
                 value: slice.to_owned(),
-                location: &last.loc - first.loc.clone(),
+                location: (&last.loc - first.loc.clone()).into(),
             })
         }
     }
@@ -168,7 +168,7 @@ pub fn preprocess_phase3<'a>(tuctx: &mut TUCtx<'a>, args: &[String]) -> Result<(
     output.push(PPToken {
         kind: PPTokenKind::EndOfFile,
         value: "".to_owned(),
-        location: Location {
+        location: DirectLocation {
             input: Rc::clone(tuctx.input()),
             begin: Position {
                 absolute: 0,
@@ -176,7 +176,8 @@ pub fn preprocess_phase3<'a>(tuctx: &mut TUCtx<'a>, args: &[String]) -> Result<(
                 column: 0,
             },
             len: 0,
-        },
+        }
+        .into(),
     });
     tuctx.set_state(TUState::PPTokens(output));
 

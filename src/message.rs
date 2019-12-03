@@ -72,16 +72,16 @@ pub enum MessageKind {
 pub struct Message {
     pub kind: MessageKind,
     pub location: Location,
-    pub include_history: Vec<(String, u32)>,
 }
 
 impl std::fmt::Display for Message {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         use MessageKind::*;
 
-        for (name, line) in &self.include_history {
-            writeln!(f, "Included from {}:{}:", &name, line)?;
-        }
+        // TODO include history / macro expansion
+        // for (name, line) in &self.include_history {
+        //     writeln!(f, "Included from {}:{}:", &name, line)?;
+        // }
         write!(f, "{}: ", self.location.fmt_begin())?;
         match &self.kind {
             Phase1FileEndingWithBackslash => write!(f, "file cannot end with a backslash"),

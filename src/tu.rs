@@ -171,11 +171,10 @@ impl<'a> TUCtx<'a> {
     }
 
     /// Emit an error to this translation unit's list
-    pub fn emit_message(&mut self, location: Location, kind: MessageKind) {
+    pub fn emit_message(&mut self, location: impl Into<Location>, kind: MessageKind) {
         self.messages.push(Message {
-            location,
+            location: location.into(),
             kind: kind,
-            include_history: Vec::new(),
         });
     }
 }

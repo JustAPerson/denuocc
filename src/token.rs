@@ -28,16 +28,16 @@ pub struct Position {
 }
 
 /// A region of code
-#[derive(Clone, Debug)]
-pub struct Location {
+#[derive(Clone)]
+pub struct DirectLocation {
     pub input: Rc<Input>,
     pub begin: Position,
     pub len: u32,
 }
 
-impl<'a> std::ops::Sub<Location> for &'a Location {
-    type Output = Location;
-    fn sub(self, other: Location) -> Location {
+impl<'a> std::ops::Sub<DirectLocation> for &'a DirectLocation {
+    type Output = DirectLocation;
+    fn sub(self, other: DirectLocation) -> DirectLocation {
         debug_assert!(Rc::ptr_eq(&self.input, &other.input));
 
         let end = self.begin.absolute + self.len;
@@ -46,7 +46,7 @@ impl<'a> std::ops::Sub<Location> for &'a Location {
         debug_assert!(end > begin);
         let len = end - begin;
 
-        Location {
+        DirectLocation {
             input: other.input,
             begin: other.begin,
             len: len,
@@ -54,7 +54,15 @@ impl<'a> std::ops::Sub<Location> for &'a Location {
     }
 }
 
-impl Location {
+impl std::fmt::Debug for DirectLocation {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.fmt_begin())
+    }
+}
+
+impl DirectLocation {
+    /// Returns a string with filename, line number, and column in a canonical
+    /// pattern
     pub fn fmt_begin(&self) -> String {
         format!(
             "{}:{}:{}",
@@ -63,11 +71,50 @@ impl Location {
     }
 }
 
+#[derive(Clone)]
+pub enum Location {
+    Direct(DirectLocation),
+    Indirect(Vec<DirectLocation>),
+}
+
+impl std::fmt::Debug for Location {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.fmt_begin())
+    }
+}
+
+impl std::convert::From<DirectLocation> for Location {
+    fn from(loc: DirectLocation) -> Location {
+        Location::Direct(loc)
+    }
+}
+
+impl Location {
+    /// Returns a string with filename, line number, and column in a canonical
+    /// pattern
+    pub fn fmt_begin(&self) -> String {
+        match self {
+            Location::Direct(loc) => loc.fmt_begin(),
+            Location::Indirect(locs) => locs.last().unwrap().fmt_begin(),
+        }
+    }
+
+    /// Push a new location to signify where this token came from
+    ///
+    /// This will occur when expanding macros or including files
+    pub fn push(&mut self, new_loc: DirectLocation) {
+        match self {
+            Location::Direct(old_loc) => *self = Location::Indirect(vec![old_loc.clone(), new_loc]),
+            Location::Indirect(locs) => locs.push(new_loc),
+        }
+    }
+}
+
 /// A very simple token used in phases 1-3
 #[derive(Clone, Debug)]
 pub struct CharToken {
     pub value: char,
-    pub loc: Location,
+    pub loc: DirectLocation,
 }
 
 impl CharToken {
@@ -86,11 +133,12 @@ impl CharToken {
         for c in input.content.chars() {
             output.push(CharToken {
                 value: c,
-                loc: Location {
+                loc: DirectLocation {
                     input: Rc::clone(input),
                     begin: position,
                     len: 1,
-                },
+                }
+                .into(),
             });
 
             // suffices for the other two counters
