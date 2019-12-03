@@ -4,6 +4,14 @@ results_print = "pptokens_to_string"
 results_compare = "assert_pptokens_loose_equal"
 
 
+# Test that result of processing input is not empty. If it is, then the result
+# of different inputs would compare equal causing this case to succeed when it
+# should fail
+[[suites.phase4.cases]]
+input = ""
+output = "no"
+should_panic = true
+
 ################################################################################
 # Macros
 ################################################################################
@@ -31,12 +39,12 @@ input = "#define test(a, b, ...)"
 output = ""
 
 ################################################################################
-# test definition parsing errors and that they result in no definition
+# Test definition parsing errors and that they result in no definition
 ################################################################################
 
 [[suites.phase4.cases]]
 input = "#define\n"
-messages = ["<case>:0:0: expected `Identifier` token; found `EndOfFile` token"]
+messages = ["<case>:1:7: expected `Identifier` token; found `Whitespace` token"]
 
 [[suites.phase4.cases]]
 input = """
@@ -53,6 +61,83 @@ test(a)
 """
 output = "test(a)"
 messages = ["<case>:1:16: expected `)`; found `,`"]
+
+[[suites.phase4.cases]]
+input = """
+#define test(a,)
+"""
+messages = ["<case>:1:15: expected identifier or `...`; found `)`"]
+
+[[suites.phase4.cases]]
+input = "#define macro(a, a) a"
+messages = ["<case>:1:17: macro parameter `a` repeated"]
+
+[[suites.phase4.cases]]
+input = """
+#define one(a) ## a
+#define two(a) a ##
+"""
+messages = [
+"<case>:1:15: a macro cannot begin nor end with `##`",
+"<case>:2:17: a macro cannot begin nor end with `##`",
+]
+
+[[suites.phase4.cases]]
+input = """
+#define one(a) # nonparam
+#define two(a) #
+#define three(a) # # a
+"""
+messages = [
+  "<case>:1:15: the `#` operator must be followed by a macro parameter",
+  "<case>:2:15: the `#` operator must be followed by a macro parameter",
+  "<case>:3:17: the `#` operator must be followed by a macro parameter"
+]
+
+[[suites.phase4.cases]]
+input = '''
+#define stringy(a) # a
+stringy(3 + 2)
+stringy(  three   +   two  )
+stringy("a" + "b")
+'''
+output = '''
+"3 + 2"
+"three + two"
+"\"a\" + \"b\""
+'''
+
+[[suites.phase4.cases]]
+input = '''
+#define concat(a, b) a ## b
+concat(one, two)
+concat(one, 2)
+concat(a, "2")
+'''
+output = """
+onetwo
+one2
+"""
+messages = [
+  "<case>:4::"
+]
+
+################################################################################
+# Test that redefinitions must be equal
+################################################################################
+
+[[suites.phase4.cases]]
+input = """
+#define test A B C
+#define test A B C
+#define test A  B   C
+#define test different
+"""
+messages = [
+  "<case>:2:8: macro `test` was originally defined here: <case>:1:8",
+  "<case>:3:8: macro `test` was originally defined here: <case>:1:8",
+  "<case>:4:8: macro `test` was originally defined differently here: <case>:1:8"
+]
 
 ################################################################################
 # Test expanding macros
@@ -91,6 +176,13 @@ func (
 )
 """
 output = "1 2 3 4"
+
+[[suites.phase4.cases]]
+input = """
+#define noparams() 123
+noparams( )
+"""
+output = "123"
 
 [[suites.phase4.cases]]
 input = """
@@ -219,10 +311,27 @@ input = """
 """
 messages = ["<case>:1:7: expected `Identifier` token; found `Whitespace` token"]
 
+[[suites.phase4.cases]]
+input = """
+#undef UNDEFINED
+"""
+messages = ["<case>:1:7: macro `UNDEFINED` does not exist"]
+
+################################################################################
 # test cases from the standard
+################################################################################
 
 [[suites.phase4.cases]]
-ignored = true
+input = '''
+#define hash_hash # ## #
+hash_hash // should result in empty string for WHATEVER reason
+a
+b hash_hash c // should result in `b ## c`
+'''
+output = 'a b ## c'
+
+[[suites.phase4.cases]]
+# ignored = true
 input = '''
 #define hash_hash # ## #
 #define mkstr(a) # a
@@ -241,7 +350,7 @@ m(m)
 output = "m(0,1)"
 
 [[suites.phase4.cases]]
-ignored = true
+# ignored = true
 input = '''
 #define x 3
 #define f(a) f(x * (a))
@@ -270,6 +379,52 @@ int i[] = { 1, 23, 4, 5, };
 char c[2][6] = { "hello", "" };
 '''
 
+[[suites.phase4.cases]]
+input = """
+#define func(a) <a>
+func     (1)
+func     (
+2)
+func
+(3)
+"""
+output = "<1> <2> <3>"
+
+[[suites.phase4.cases]]
+# ignored = true
+input = """
+#define multiline(a) yes
+multiline (
+#ifdef multiline
+)
+#endif
+"""
+output = "yes"
+
+[[suites.phase4.case]]
+input = """
+#define test(a) <a>
+test (
+#define b 1
+  b
+)
+test (
+  c
+#define c 2
+  c
+)
+test (
+  d
+#define d 3
+  d
+#undef d
+)
+"""
+output = """
+<1>
+<2 2>
+<d d>
+"""
 
 ################################################################################
 # Random examples I found online
@@ -279,13 +434,28 @@ char c[2][6] = { "hello", "" };
 ################################################################################
 
 [[suites.phase4.cases]]
-ignored = true
+# ignored = true
 input = """
 #define function() 123
 #define concat(a,b) a ## b
 concat(func,tion)()
 """
 output = "123"
+
+[[suites.phase4.cases]]
+input = """
+#define open (
+#define opena (a
+#define openacomma (a,
+open
+opena
+openacomma
+"""
+output = """
+(
+(a
+(a,
+"""
 
 [[suites.phase4.cases]]
 input = """
@@ -298,7 +468,7 @@ output = "123"
 
 
 [[suites.phase4.cases]]
-ignored = true
+# ignored = true
 input = """
 #define boo() 123
 #define foo(x) x #x
@@ -314,6 +484,52 @@ output = '123 "boo()"'
 
 [[suites.phase4.cases]]
 input = """
+#if 1
+a
+#elif 1
+b
+#else
+c
+#endif
+"""
+output = "a"
+
+[[suites.phase4.cases]]
+input = """
+#if 0
+a
+#elif 1
+b
+#else
+c
+#endif
+"""
+output = "b"
+
+[[suites.phase4.cases]]
+input = """
+#if 0
+a
+#elif 0
+b
+#else
+c
+#endif
+"""
+output = "c"
+
+[[suites.phase4.cases]]
+input = """
+#if 0
+a
+#else
+b
+#endif
+"""
+output = "b"
+
+[[suites.phase4.cases]]
+input = """
 #ifdef UNDEFINED
 a
 #else
@@ -323,12 +539,79 @@ b
 output = "b"
 
 [[suites.phase4.cases]]
-ignored = true
 input = """
-#define multiline(a) yes
-multiline (
-#ifdef multiline
-)
-#endi
+#define DEFINED
+#ifdef DEFINED
+a
+#else
+b
+#endif
 """
-output = "yes"
+output = "a"
+
+[[suites.phase4.cases]]
+input = """
+#ifdef 3
+#endif
+#ifndef 2
+#else
+#endif
+"""
+messages = [
+  "<case>:1:7: expected identifier; found `PPNumber` token",
+  "<case>:3:8: expected identifier; found `PPNumber` token"
+]
+
+[[suites.phase4.cases]]
+input = """
+#ifdef test /* whitespace */
+#endif
+#ifdef test // whitespace
+#endif
+"""
+
+# Test if-directive expressions
+[[suites.phase4.cases]]
+input = """
+#if defined a
+1
+#endif
+
+#if defined(a)
+2
+#endif
+
+#if defined ( a )
+3
+#endif
+
+#define a
+
+#if defined a
+4
+#endif
+#if defined(a)
+5
+#endif
+#if defined ( a )
+6
+#endif
+"""
+output = "4 5 6"
+
+[[suites.phase4.cases]]
+input = """
+#if defined + a )
+#endif
+
+#if defined ( 5 )
+#endif
+
+#if defined ( a x
+#endif
+"""
+messages = [
+  "<case>:1:12:",
+  "<case>:1:12:",
+  "<case>:1:12:",
+]

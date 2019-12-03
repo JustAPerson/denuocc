@@ -45,6 +45,10 @@ impl std::fmt::Display for MessagePart {
 
 #[derive(Clone, Debug)]
 pub enum MessageKind {
+    ExpectedFound {
+        expected: MessagePart,
+        found: MessagePart,
+    },
     Phase1FileEndingWithBackslash,
     Phase3MissingTerminator {
         terminator: char,
@@ -62,9 +66,30 @@ pub enum MessageKind {
         found: usize,
         vararg: bool,
     },
-    ExpectedFound {
-        expected: MessagePart,
-        found: MessagePart,
+    Phase4MacroRedefinition {
+        name: String,
+        original: Location,
+    },
+    Phase4MacroRedefinitionDifferent {
+        name: String,
+        original: Location,
+    },
+    Phase4UndefineInvalidMacro {
+        // TODO: Should be a very pedantic warning disabled by default
+        name: String,
+    },
+    Phase4UnclosedMacroInvocation {
+        name: String,
+        open: Location,
+    },
+    Phase4RepeatedMacroParameter {
+        parameter: String,
+    },
+    Phase4IllegalSingleHash,
+    Phase4IllegalDoubleHash,
+    Phase4BadConcatenation {
+        lhs: String,
+        rhs: String,
     },
 }
 
@@ -84,6 +109,9 @@ impl std::fmt::Display for Message {
         // }
         write!(f, "{}: ", self.location.fmt_begin())?;
         match &self.kind {
+            ExpectedFound { expected, found } => {
+                write!(f, "expected {}; found {}", expected, found)
+            }
             Phase1FileEndingWithBackslash => write!(f, "file cannot end with a backslash"),
             Phase3MissingTerminator { terminator } => {
                 write!(f, "missing closing {} terminator", terminator)
@@ -113,9 +141,37 @@ impl std::fmt::Display for Message {
                 },
                 found
             ),
-            ExpectedFound { expected, found } => {
-                write!(f, "expected {}; found {}", expected, found)
+            Phase4MacroRedefinition { name, original } => write!(
+                f,
+                "macro `{}` was originally defined here: {}",
+                name,
+                original.fmt_begin(),
+            ),
+            Phase4MacroRedefinitionDifferent { name, original } => write!(
+                f,
+                "macro `{}` was originally defined differently here: {}",
+                name,
+                original.fmt_begin(),
+            ),
+            Phase4UndefineInvalidMacro { name } => write!(f, "macro `{}` does not exist", name),
+            Phase4UnclosedMacroInvocation { name, open } => write!(
+                f,
+                "expected `)` to end invocation of macro `{}` which opened at: {}",
+                name,
+                open.fmt_begin()
+            ),
+            Phase4RepeatedMacroParameter { parameter } => {
+                write!(f, "macro parameter `{}` repeated", parameter)
             }
+            Phase4IllegalSingleHash => {
+                write!(f, "the `#` operator must be followed by a macro parameter")
+            }
+            Phase4IllegalDoubleHash => write!(f, "a macro cannot begin nor end with `##`"),
+            Phase4BadConcatenation { lhs, rhs } => write!(
+                f,
+                "concatenating `{}` and `{}` does not result in a valid preprocessor token",
+                lhs, rhs
+            ),
         }
     }
 }

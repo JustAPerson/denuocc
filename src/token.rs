@@ -20,7 +20,7 @@ use std::rc::Rc;
 use crate::driver::Input;
 
 /// A specific point in a file
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct Position {
     pub absolute: u32,
     pub line: u32,
@@ -211,8 +211,26 @@ impl PPToken {
         output
     }
 
+    pub fn to_strings(input: &[PPToken]) -> Vec<&str> {
+        input.iter().map(|t| t.as_str()).collect()
+    }
+
+    pub fn is_ident(&self) -> bool {
+        self.kind == PPTokenKind::Identifier || self.kind == PPTokenKind::IdentifierNonExpandable
+    }
+
     pub fn is_whitespace(&self) -> bool {
         self.kind == PPTokenKind::Whitespace
+    }
+
+    pub fn is_whitespace_not_newline(&self) -> bool {
+        self.is_whitespace() && self.as_str() != "\n"
+    }
+}
+
+impl std::fmt::Display for PPToken {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
     }
 }
 
