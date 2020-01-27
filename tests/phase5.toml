@@ -1,0 +1,103 @@
+[suites.phase5]
+passes = ["state_read_input", "phase1", "phase2", "phase3", "phase4", "phase5"]
+results_print = "pptokens_to_string"
+results_compare = "assert_pptokens_loose_equal"
+
+[[suites.phase5.cases]]
+input = '"\x48\x65\x6c\x6c\x6f\x20\x57\x6f\x72\x6c\x64\x21"'
+output = '"Hello World!"'
+
+[[suites.phase5.cases]]
+input = '"\110\145\154\154\157\040\127\157\162\154\144\041"'
+output = '"Hello World!"'
+
+[[suites.phase5.cases]]
+input = '''
+'\\'
+'\?'
+'\''
+'\"'
+'\a'
+'\b'
+'\f'
+'\n'
+'\r'
+'\t'
+'\v'
+'''
+output = '''
+'\x5c'
+'\x3f'
+'\x27'
+'\x22'
+'\x07'
+'\x08'
+'\x0c'
+'\x0a'
+'\x0d'
+'\x09'
+'\x0b'
+'''
+
+[[suites.phase5.cases]]
+input  = '"Hello \"World\"\x21"'
+output = '"Hello \"World\"!"'
+
+[[suites.phase5.cases]]
+input  = '"\"'
+messages = [
+  "<case>:1:0: expected character after escape sequence",
+]
+
+[[suites.phase5.cases]]
+input = '''
+"\x"
+"\x0
+"\u"
+"\u0"
+"\U"
+"\U000"
+'''
+messages = [
+  '<case>:1:0: expected character after escape sequence',
+  '<case>:3:0: expected character after escape sequence',
+  '<case>:4:0: expected 4 digits after `\u`; found 1',
+  '<case>:5:0: expected character after escape sequence',
+  '<case>:6:0: expected 8 digits after `\U`; found 3',
+]
+
+[[suites.phase5.cases]]
+input  = '"\0400"'
+output = '" 0"'
+
+[[suites.phase5.cases]]
+input  = '"a\qb"'
+output = '"ab"'
+messages = [
+  '<case>:1:0: `\q` is not a valid escape',
+]
+
+[[suites.phase5.cases]]
+input = '''
+"\xff"
+"\x100"
+u8"\xff"
+u8"\x100"
+u"\xffff"
+u"\x10000"
+U"\x0010fffd"
+U"\xffffffff"
+U"\x100000000"
+L"\x0010fffd"
+L"\xffffffff"
+L"\x100000000"
+'''
+messages = [
+  '<case>:2:0: `\x100` exceeds range of type (unsigned char)',
+  '<case>:4:0: `\x100` exceeds range of type (unsigned char)',
+  '<case>:6:0: `\x10000` exceeds range of type (char16_t)',
+  '<case>:8:0: `\xffffffff` cannot be represented',
+  '<case>:9:0: `\x100000000` exceeds range of type (char32_t)',
+  '<case>:11:0: `\xffffffff` cannot be represented',
+  '<case>:12:0: `\x100000000` exceeds range of type (wchar_t)'
+]

@@ -135,7 +135,9 @@ impl Case {
 
         self.print_result(suite, &state);
 
-        assert_eq!(messages.len(), 0);
+        if messages.len() > 0 {
+            panic!("output of case had unexpected messages: \n{:?}", messages);
+        }
 
         state
     }

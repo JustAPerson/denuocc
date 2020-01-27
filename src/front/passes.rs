@@ -15,7 +15,7 @@
 
 //! Define pass functions for each phase of compilation
 
-use crate::front::minor::{convert_trigraphs, splice_lines};
+use crate::front::minor::{convert_trigraphs, splice_lines, unescape};
 use crate::front::lexer::lex;
 use crate::front::preprocessor::preprocess;
 use crate::tu::{TUCtx, TUState};
@@ -63,6 +63,17 @@ pub fn phase4(tuctx: &mut TUCtx, args: &[String]) -> Result<()> {
     let tokens = tuctx.take_state()?.into_pptokens()?;
     let output = preprocess(tuctx, tokens);
     tuctx.set_state(TUState::PPTokens(output));
+
+    Ok(())
+}
+
+/// Calls [`front::minor::unescape`](unescape)
+pub fn phase5(tuctx: &mut TUCtx, args: &[String]) -> Result<()> {
+    args_assert_count("phase5", args, 0)?;
+
+    let mut tokens = tuctx.take_state()?.into_pptokens()?;
+    unescape(tuctx, &mut tokens);
+    tuctx.set_state(TUState::PPTokens(tokens));
 
     Ok(())
 }

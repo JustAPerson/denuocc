@@ -91,6 +91,24 @@ pub enum MessageKind {
         lhs: String,
         rhs: String,
     },
+    Phase5Empty,
+    Phase5OutOfRange {
+        prefix: &'static str,
+        value: String,
+        encoding: crate::front::minor::Encoding,
+    },
+    Phase5Invalid {
+        prefix: &'static str,
+        value: String,
+    },
+    Phase5Incomplete {
+        expected: usize,
+        found: usize,
+        prefix: char,
+    },
+    Phase5Unrecognized {
+        escape: char,
+    },
 }
 
 #[derive(Clone, Debug)]
@@ -172,6 +190,31 @@ impl std::fmt::Display for Message {
                 "concatenating `{}` and `{}` does not result in a valid preprocessor token",
                 lhs, rhs
             ),
+            Phase5Empty => write!(f, "expected character after escape sequence"),
+            Phase5Incomplete {
+                expected,
+                found,
+                prefix,
+            } => write!(
+                f,
+                "expected {} digits after `\\{}`; found {}",
+                expected, prefix, found
+            ),
+            Phase5OutOfRange {
+                prefix,
+                value,
+                encoding,
+            } => write!(
+                f,
+                "`\\{}{}` exceeds range of type ({})",
+                prefix,
+                value,
+                encoding.type_str()
+            ),
+            Phase5Invalid { prefix, value } => {
+                write!(f, "`\\{}{}` cannot be represented", prefix, value)
+            }
+            Phase5Unrecognized { escape } => write!(f, "`\\{}` is not a valid escape", escape),
         }
     }
 }

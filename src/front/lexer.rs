@@ -35,29 +35,27 @@ static TOKEN_PATTERNS: &[(&'static str, PPTokenKind)] = &[
     ),
     (
         concat!(
-            r"^[LuU]?",         // type specifiers
-            r"'",               // opening single quote
-            r"(",               // open regex group
-            r"[^'\\\n]",        // anything except single quote, backslash, or newline
-            r"|(\\[0-7]{1,3})", // octal
-            r"|(\\x[0-9a-f]+)", // hexadecimal
-            r"|(\\.)",          // match any simple escape, verify them later TODO
-            r")*?",             // close regex group and multiples (non greedy)
-            r"'",               // closing single quote
+            r"^[LuU]?",  // type specifiers
+            r"'",        // opening single quote
+            r"(",        // open regex group
+            r"[^'\\\n]", // anything except single quote, backslash, or newline
+            r"|(\\')",   // match nested single quote
+            r"|(\\)",    // match backslash to start any escape
+            r")*?",      // close regex group and multiples (non greedy)
+            r"'",        // closing single quote
         ),
         PPTokenKind::CharacterConstant,
     ),
     (
         concat!(
-            r"^(u8|u|U|L)?",    // type specifiers
-            "\"",               // opening double quote
-            r"(",               // open regex group
-            r#"[^"\\\n]"#,      // anything except double quote, backslash, or newline
-            r"|(\\[0-7]{1,3})", // octal
-            r"|(\\x[0-9a-f]+)", // hexadecimal
-            r"|(\\.)",          // match any simple escape, verify them later TODO
-            r")*?",             // close regex group and multiples (non greedy)
-            "\"",               // closing double quote
+            r"^(u8|u|U|L)?", // type specifiers
+            "\"",            // opening double quote
+            r"(",            // open regex group
+            r#"[^"\\\n]"#,   // anything except double quote, backslash, or newline
+            r#"|(\\")"#,     // match nested double quote
+            r"|(\\)",        // match backslash to start any escape
+            r")*?",          // close regex group and multiples (non greedy)
+            "\"",            // closing double quote
         ),
         PPTokenKind::StringLiteral,
     ),
@@ -232,34 +230,7 @@ mod test {
         case("'abc'");
         case("'<=>'");
 
-        // escaped quote, leaving no terminator
-        case_fail("'a{\\'");
-
-        // verify we until the next newline
-        let (tokens, _) = phase3("'a\\'");
-        assert_eq!(tokens.len(), 1);
-        assert_eq!(tokens[0].kind, PPTokenKind::EndOfFile);
-        let (tokens, _) = phase3("'a\\'\na");
-        assert_eq!(tokens[0].kind, PPTokenKind::Whitespace);
-
-        // TODO move these cases to a later stage
-        case(r#"'\''"#);
-        case(r#"'\"'"#);
-        case(r#"'\?'"#);
-        case(r#"'\\'"#);
-        case(r#"'\a'"#);
-        case(r#"'\b'"#);
-        case(r#"'\f'"#);
-        case(r#"'\n'"#);
-        case(r#"'\r'"#);
-        case(r#"'\t'"#);
-        case(r#"'\v'"#);
-        case(r#"'\x'"#);
-
-        case(r"'\0'");
-        case(r"'\012'");
-        case(r"'\09'");
-        case(r"'\x01239'");
+        case(r"'\'\''");
 
         let (tokens, _) = phase3("'a' + 'b'");
         assert_eq!(tokens.len(), 6);
