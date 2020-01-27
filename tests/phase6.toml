@@ -1,0 +1,39 @@
+[suites.phase6]
+passes = ["state_read_input", "phase1", "phase2", "phase3", "phase4", "phase5", "phase6"]
+results_print = "pptokens_to_string"
+results_compare = "assert_pptokens_loose_equal"
+
+[[suites.phase6.cases]]
+input  = '"a" "b"'
+output = '"ab"'
+
+[[suites.phase6.cases]]
+input  = '''
+ "a"  "b" L"c";
+ "a" L"b"  "c";
+L"a"  "b"  "c";
+L"a" L"b" L"c";
+
+ "a"  "b" u"c";
+ "a" u"b"  "c";
+u"a"  "b"  "c";
+u"a" u"b" u"c";
+'''
+output = '''
+L"abc"; L"abc"; L"abc"; L"abc";
+u"abc"; u"abc"; u"abc"; u"abc";
+'''
+
+[[suites.phase6.cases]]
+input = '''
+u"a" U"b";
+U"a" L"b";
+L"a" u8"b";
+u8"a" u"b";
+'''
+messages = [
+  "<case>:1:5: incompatible encoding when concatenating; previously `universal 16` but found `universal 32`",
+  "<case>:2:5: incompatible encoding when concatenating; previously `universal 32` but found `wide`",
+  "<case>:3:5: incompatible encoding when concatenating; previously `wide` but found `utf-8`",
+  "<case>:4:6: incompatible encoding when concatenating; previously `utf-8` but found `universal 16`"
+]

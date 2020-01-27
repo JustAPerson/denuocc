@@ -148,6 +148,17 @@ impl Encoding {
         }
     }
 
+    pub fn compatible(&mut self, other: Encoding) -> bool {
+        match (*self, other) {
+            (Encoding::Default, new) => {
+                *self = new;
+                true
+            }
+            (_, Encoding::Default) => true,
+            (old, new) => old == new,
+        }
+    }
+
     pub fn from_str(s: &str) -> Encoding {
         match s {
             "" => Encoding::Default,
@@ -156,6 +167,26 @@ impl Encoding {
             "L" => Encoding::WChar,
             "u8" => Encoding::UTF8,
             _ => unreachable!(), // should be handled by lexer
+        }
+    }
+
+    pub fn to_str(&self) -> &'static str {
+        match *self {
+            Encoding::Default => "default",
+            Encoding::Char16 => "universal 16",
+            Encoding::Char32 => "universal 32",
+            Encoding::WChar => "wide",
+            Encoding::UTF8 => "utf-8",
+        }
+    }
+
+    pub fn prefix(&self) -> &'static str {
+        match *self {
+            Encoding::Default => "",
+            Encoding::Char16 => "u",
+            Encoding::Char32 => "U",
+            Encoding::WChar => "L",
+            Encoding::UTF8 => "u8",
         }
     }
 }
@@ -423,4 +454,58 @@ pub fn unescape(tuctx: &mut TUCtx, input: &mut Vec<PPToken>) {
             _ => continue,
         }
     }
+}
+
+/// Get encoding prefix for string/character constant
+pub fn get_string_encoding(s: &str, delim: &str) -> Encoding {
+    let prefix = s.split(delim).next().unwrap();
+    Encoding::from_str(prefix)
+}
+
+/// Get content of string/character constant
+pub fn get_string_content<'a>(s: &'a str, delim: &str) -> &'a str {
+    let prefix_len = s.split(delim).next().unwrap().as_bytes().len();
+    let len = s.as_bytes().len();
+    &s[prefix_len + 1..len - 1]
+}
+
+/// Phase 6: Concatenate adjacent string literals and remove whitespace
+pub fn concatenate(tuctx: &mut TUCtx, input: Vec<PPToken>) -> Vec<PPToken> {
+    let mut iter = input.into_iter().filter(|t| !t.is_whitespace()).peekable();
+    let mut output = Vec::new();
+
+    while let Some(mut token) = iter.next() {
+        if token.kind != PPTokenKind::StringLiteral {
+            output.push(token);
+        } else {
+            // Encoding::compatible() will update the overall encoding of this string if it was
+            // previously default-encoded.
+            let mut encoding = get_string_encoding(&token.value, "\"");
+            let mut string = get_string_content(&token.value, "\"").to_owned();
+
+            while iter.peek().map(|t| t.kind == PPTokenKind::StringLiteral) == Some(true) {
+                let new_token = iter.next().unwrap();
+                let new_encoding = get_string_encoding(&new_token.value, "\"");
+
+                if encoding.compatible(new_encoding) {
+                    // TODO FIXME expand token locations???
+                    string.push_str(get_string_content(&new_token.value, "\""));
+                } else {
+                    tuctx.emit_message(
+                        new_token.location,
+                        MessageKind::Phase6IncompatibleEncoding {
+                            previous: encoding,
+                            current: new_encoding,
+                        },
+                    )
+                }
+            }
+
+            token.value = format!("{}\"{}\"", encoding.prefix(), string);
+
+            output.push(token);
+        }
+    }
+
+    output
 }

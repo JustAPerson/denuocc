@@ -17,7 +17,7 @@
 
 use crate::error::Result;
 use crate::front::lexer::lex;
-use crate::front::minor::{convert_trigraphs, splice_lines, unescape};
+use crate::front::minor::{concatenate, convert_trigraphs, splice_lines, unescape};
 use crate::front::preprocessor::preprocess;
 use crate::passes::helper::args_assert_count;
 use crate::tu::{TUCtx, TUState};
@@ -73,6 +73,17 @@ pub fn phase5(tuctx: &mut TUCtx, args: &[String]) -> Result<()> {
     let mut tokens = tuctx.take_state()?.into_pptokens()?;
     unescape(tuctx, &mut tokens);
     tuctx.set_state(TUState::PPTokens(tokens));
+
+    Ok(())
+}
+
+/// Calls [`front::minor::concatenate`](concatenate)
+pub fn phase6(tuctx: &mut TUCtx, args: &[String]) -> Result<()> {
+    args_assert_count("phase6", args, 0)?;
+
+    let tokens = tuctx.take_state()?.into_pptokens()?;
+    let output = concatenate(tuctx, tokens);
+    tuctx.set_state(TUState::PPTokens(output));
 
     Ok(())
 }

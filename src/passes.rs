@@ -62,6 +62,7 @@ pub static PASSES: &[(&str, PassFn)] = &[
     ("phase3", front::passes::phase3),
     ("phase4", front::passes::phase4),
     ("phase5", front::passes::phase5),
+    ("phase6", front::passes::phase6),
 ];
 
 pub mod state {

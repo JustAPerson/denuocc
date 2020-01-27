@@ -15,6 +15,7 @@
 
 //! User visible messages about the input file
 
+use crate::front::minor::Encoding;
 use crate::token::{Location, PPTokenKind};
 
 #[derive(Copy, Clone, Debug)]
@@ -95,7 +96,7 @@ pub enum MessageKind {
     Phase5OutOfRange {
         prefix: &'static str,
         value: String,
-        encoding: crate::front::minor::Encoding,
+        encoding: Encoding,
     },
     Phase5Invalid {
         prefix: &'static str,
@@ -108,6 +109,10 @@ pub enum MessageKind {
     },
     Phase5Unrecognized {
         escape: char,
+    },
+    Phase6IncompatibleEncoding {
+        previous: Encoding,
+        current: Encoding,
     },
 }
 
@@ -215,6 +220,12 @@ impl std::fmt::Display for Message {
                 write!(f, "`\\{}{}` cannot be represented", prefix, value)
             }
             Phase5Unrecognized { escape } => write!(f, "`\\{}` is not a valid escape", escape),
+            Phase6IncompatibleEncoding { previous, current } => write!(
+                f,
+                "incompatible encoding when concatenating; previously `{}` but found `{}`",
+                previous.to_str(),
+                current.to_str()
+            ),
         }
     }
 }
