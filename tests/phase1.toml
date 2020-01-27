@@ -1,0 +1,36 @@
+[suites.phase1]
+passes = ["state_read_input", "preprocess_phase1"]
+results_print = "chartokens_to_string"
+results_compare = "assert_chartokens_equal"
+
+# Ensure that we are actually comparing things
+[[suites.phase1.cases]]
+should_panic = true
+input = "a"
+output = "b"
+
+[[suites.phase1.cases]]
+input = """
+a ab abc
+? ?? ???
+"""
+output = """
+a ab abc
+? ?? ???
+"""
+
+[[suites.phase1.cases]]
+input = "??( ??) ??< ??> ??= ??! ??' ??- ??/"
+output = "[ ] { } # | ^ ~ \\"
+
+[[suites.phase1.cases]]
+input = "???= ????="
+output = "?# ??#"
+
+[[suites.phase1.cases]]
+input  = "??=define arraycheck(a, b) a??(b??) ??!??! b??(a??)"
+output = "#define arraycheck(a, b) a[b] || b[a]"
+
+[[suites.phase1.cases]]
+input  = 'printf("Eh???/n");'
+output = 'printf("Eh?\n");'

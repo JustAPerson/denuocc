@@ -1,4 +1,4 @@
-// Copyright (C) 2019 Jason Priest
+// Copyright (C) 2019 - 2020 Jason Priest
 //
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the GNU General Public License as published by the Free Software
@@ -30,12 +30,14 @@ use toml::Spanned;
 #[derive(Copy, Clone, Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
 enum ResultsCompare {
+    AssertChartokensEqual,
     AssertPptokensLooseEqual,
 }
 
 #[derive(Copy, Clone, Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
 enum ResultsPrint {
+    ChartokensToString,
     PptokensToString,
 }
 
@@ -139,10 +141,15 @@ impl Case {
     }
 
     fn compare_input_output(&self, suite: &Suite, input: &TUState, output: &TUState) {
-        use denuocc::token::assert_pptokens_loose_equal;
+        use denuocc::token::{assert_pptokens_loose_equal, assert_chartokens_equal};
         use ResultsCompare::*;
 
         match suite.results_compare {
+            AssertChartokensEqual => {
+                let input = input.as_chartokens().unwrap();
+                let output = output.as_chartokens().unwrap();
+                assert_chartokens_equal(input, output);
+            }
             AssertPptokensLooseEqual => {
                 let input = input.as_pptokens().unwrap();
                 let output = output.as_pptokens().unwrap();
@@ -152,7 +159,7 @@ impl Case {
     }
 
     fn print_result(&self, suite: &Suite, result: &TUState) {
-        use denuocc::token::PPToken;
+        use denuocc::token::{PPToken, CharToken};
         use ResultsPrint::*;
 
         if suite.results_print.is_none() {
@@ -160,6 +167,7 @@ impl Case {
         }
 
         match suite.results_print.unwrap() {
+            ChartokensToString => println!("{}", CharToken::to_string(result.as_chartokens().unwrap())),
             PptokensToString => println!("{}", PPToken::to_string(result.as_pptokens().unwrap())),
         }
     }

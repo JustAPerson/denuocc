@@ -155,6 +155,10 @@ impl CharToken {
         return output;
     }
 
+    pub fn is_whitespace(&self) -> bool {
+        [' ', '\n', '\t'].contains(&self.value)
+    }
+
     /// Converts the given list of [`CharTokens`] into a string.
     ///
     /// [`CharTokens`]: struct.CharToken.html
@@ -163,7 +167,54 @@ impl CharToken {
     }
 }
 
-/// The different kinds of [`PPToken`](./struct.PPToken.html)
+// Ignore location field
+impl std::cmp::PartialEq for CharToken {
+    fn eq(&self, rhs: &Self) -> bool {
+        // ignore location field
+        self.value == rhs.value
+    }
+}
+
+/// Assert that two lists of [`CharTokens`](CharToken) are equal
+pub fn assert_chartokens_equal(a: &[CharToken], b: &[CharToken]) {
+    // let mut a = a.iter().enumerate().filter(|(_, t)| !t.is_whitespace());
+    // let mut b = b.iter().enumerate().filter(|(_, t)| !t.is_whitespace());
+    let mut a = a.iter().enumerate();
+    let mut b = b.iter().enumerate();
+
+    loop {
+        match (a.next(), b.next()) {
+            // if elements match, continue
+            (Some((_, a)), Some((_, b))) if a == b => continue,
+
+            // if both iterators terminate at same time, the lists were equal
+            (None, None) => return,
+
+            // this covers the case where both iterators return Some but the
+            // elements are different, as well as one iterator terminating early
+            (Some((i1, a)), Some((i2, b))) => {
+                panic!(
+                    "assertion failed: `(left == right)`\n  left[{}] = {:?}\n right[{}] = {:?}",
+                    i1, a, i2, b
+                );
+            }
+            (Some((i1, a)), None) => {
+                panic!(
+                    "assertion failed: `(left == right)`\n  left[{}] = {:?}\n right terminated",
+                    i1, a
+                );
+            }
+            (None, Some((i2, b))) => {
+                panic!(
+                    "assertion failed: `(left == right)`\n  left terminated\n right[{}] = {:?}",
+                    i2, b
+                );
+            }
+        }
+    }
+}
+
+/// The different kinds of [`PPToken`]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum PPTokenKind {
     Placemarker,
@@ -260,6 +311,7 @@ impl std::cmp::PartialEq for PPToken {
     }
 }
 
+/// Compares two lists of [`PPTokens`](PPToken), ignoring whitespace.
 pub fn pptokens_loose_equal(a: &[PPToken], b: &[PPToken]) -> bool {
     let mut a = a.iter().filter(|t| !t.is_whitespace());
     let mut b = b.iter().filter(|t| !t.is_whitespace());
@@ -279,12 +331,14 @@ pub fn pptokens_loose_equal(a: &[PPToken], b: &[PPToken]) -> bool {
     }
 }
 
+/// Assert that two lists of [`PPTokens`](PPToken) are equal,
+/// ignoring whitespace.
 pub fn assert_pptokens_loose_equal(a: &[PPToken], b: &[PPToken]) {
     let mut a = a.iter().enumerate().filter(|(_, t)| !t.is_whitespace());
     let mut b = b.iter().enumerate().filter(|(_, t)| !t.is_whitespace());
 
     loop {
-        match dbg!((a.next(), b.next())) {
+        match (a.next(), b.next()) {
             // if elements match, continue
             (Some((_, a)), Some((_, b))) if a == b => continue,
 
