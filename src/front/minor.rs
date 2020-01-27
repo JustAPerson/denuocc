@@ -1,4 +1,4 @@
-// Copyright (C) 2019 Jason Priest
+// Copyright (C) 2020 Jason Priest
 //
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the GNU General Public License as published by the Free Software
@@ -13,14 +13,16 @@
 // You should have received a copy of  the GNU General Public License along with
 // this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Phase 1: Convert trigraphs
+//! Minor phases: 1, 2, 5, 6
 
-use crate::error::Result;
-use crate::passes::helper::args_assert_count;
-use crate::token::CharToken;
-use crate::tu::{TUCtx, TUState};
+use std::convert::TryFrom;
 
-pub fn preprocess_phase1_raw<'a>(tokens: Vec<CharToken>) -> Vec<CharToken> {
+use crate::message::MessageKind;
+use crate::token::{CharToken, Location, PPToken, PPTokenKind};
+use crate::tu::TUCtx;
+
+/// Phase 1: Convert trigraphs
+pub fn convert_trigraphs<'a>(tokens: Vec<CharToken>) -> Vec<CharToken> {
     static REPLACEMENTS: &[(char, char)] = &[
         ('=', '#'),
         (')', ']'),
@@ -67,13 +69,43 @@ pub fn preprocess_phase1_raw<'a>(tokens: Vec<CharToken>) -> Vec<CharToken> {
     output
 }
 
-/// Translate source character set (trigraphs etc)
-pub fn preprocess_phase1<'a>(tuctx: &mut TUCtx<'a>, args: &[String]) -> Result<()> {
-    args_assert_count("preprocess_phase1", args, 0)?;
+/// Phase 2: Splice together physical lines into logical lines
+///
+/// A line ending in `\` will be spliced together with the next line. Thus both
+/// the back slash and newline characters will be removed. This allows multiline
+/// comments and strings
+pub fn splice_lines(tuctx: &mut TUCtx, input: Vec<CharToken>) -> Vec<CharToken> {
+    let mut output = Vec::new();
+    let mut iter = input.into_iter();
 
-    let tokens = tuctx.take_state()?.into_chartokens()?;
-    let output = preprocess_phase1_raw(tokens);
-    tuctx.set_state(TUState::CharTokens(output));
+    while iter.as_slice().len() > 1 {
+        let first = iter.next().unwrap();
+        let second = &iter.as_slice()[0];
 
-    Ok(())
+        if first.value == '\\' && second.value == '\n' {
+            let loc = &second.loc - second.loc.clone();
+            iter.next(); // consume second
+
+            // do not emit either to output, in effect splicing physical lines
+            // into one logical line
+
+            // are these the last two characters of input?
+            if iter.as_slice().len() == 0 {
+                tuctx.emit_message(loc, MessageKind::Phase1FileEndingWithBackslash);
+            }
+        } else {
+            output.push(first);
+        }
+    }
+
+    if let Some(last) = iter.next() {
+        if last.value == '\\' {
+            tuctx.emit_message(last.loc, MessageKind::Phase1FileEndingWithBackslash);
+        } else {
+            output.push(last);
+        }
+    }
+    assert!(iter.next().is_none());
+
+    output
 }

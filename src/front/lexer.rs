@@ -1,4 +1,4 @@
-// Copyright (C) 2019 Jason Priest
+// Copyright (C) 2019 - 2020 Jason Priest
 //
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the GNU General Public License as published by the Free Software
@@ -13,17 +13,16 @@
 // You should have received a copy of  the GNU General Public License along with
 // this program. If not, see <https://www.gnu.org/licenses/>.
 
-/// Phase 3: Construct preprocessor tokens
+//! Phase 3: Construct preprocessor tokens
+
 use std::rc::Rc;
 
 use lazy_static::lazy_static;
 use regex::{Regex, RegexSet};
 
-use crate::error::Result;
 use crate::message::MessageKind;
-use crate::passes::helper::args_assert_count;
-use crate::token::{CharToken, DirectLocation, Location, PPToken, PPTokenKind, Position};
-use crate::tu::{TUCtx, TUState};
+use crate::token::{CharToken, DirectLocation, PPToken, PPTokenKind, Position};
+use crate::tu::TUCtx;
 
 static TOKEN_PATTERNS: &[(&'static str, PPTokenKind)] = &[
     ("^.", PPTokenKind::Other),
@@ -123,10 +122,8 @@ pub fn lex_one_token(input: &str) -> (&str, PPTokenKind) {
     (slice, kind)
 }
 
-pub fn preprocess_phase3<'a>(tuctx: &mut TUCtx<'a>, args: &[String]) -> Result<()> {
-    args_assert_count("preprocess_phase3", args, 0)?;
-
-    let tokens = tuctx.take_state()?.into_chartokens()?;
+/// Categorize all tokens given by the input token sequence
+pub fn lex(tuctx: &mut TUCtx, tokens: Vec<CharToken>) -> Vec<PPToken> {
     let string = CharToken::to_string(&tokens);
     debug_assert_eq!(tokens.len(), string.len());
 
@@ -179,9 +176,8 @@ pub fn preprocess_phase3<'a>(tuctx: &mut TUCtx<'a>, args: &[String]) -> Result<(
         }
         .into(),
     });
-    tuctx.set_state(TUState::PPTokens(output));
 
-    Ok(())
+    output
 }
 
 #[cfg(test)]
@@ -195,9 +191,9 @@ mod test {
         driver
             .parse_args_from_str(&[
                 "--pass=state_read_input",
-                "--pass=preprocess_phase1",
-                "--pass=preprocess_phase2",
-                "--pass=preprocess_phase3",
+                "--pass=phase1",
+                "--pass=phase2",
+                "--pass=phase3",
                 "--pass=state_save(pptokens)",
             ])
             .unwrap();

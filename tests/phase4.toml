@@ -1,5 +1,5 @@
 [suites.phase4]
-passes = ["state_read_input", "preprocess_phase1", "preprocess_phase2", "preprocess_phase3", "preprocess_phase4"]
+passes = ["state_read_input", "phase1", "phase2", "phase3", "phase4"]
 results_print = "pptokens_to_string"
 results_compare = "assert_pptokens_loose_equal"
 

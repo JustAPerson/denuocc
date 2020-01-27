@@ -1,4 +1,4 @@
-// Copyright (C) 2019 - 2020 Jason Priest
+// Copyright (C) 2020 Jason Priest
 //
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the GNU General Public License as published by the Free Software
@@ -13,18 +13,9 @@
 // You should have received a copy of  the GNU General Public License along with
 // this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Denuo C Compiler
+//! Compiler front-end; everything about C syntax
 
-pub mod artifact;
-pub mod driver;
-pub mod error;
-pub mod flags;
-pub mod message;
+pub mod lexer;
+pub mod minor;
 pub mod passes;
-pub mod token;
-pub mod tu;
-
-pub mod front;
-
-pub use crate::driver::Driver;
-pub use crate::error::{Error, Result};
+pub mod preprocessor;

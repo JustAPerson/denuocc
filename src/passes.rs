@@ -1,4 +1,4 @@
-// Copyright (C) 2019 Jason Priest
+// Copyright (C) 2019 - 2020 Jason Priest
 //
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the GNU General Public License as published by the Free Software
@@ -19,14 +19,9 @@ use std::collections::{HashMap, HashSet};
 
 use lazy_static::lazy_static;
 
+use crate::front;
 use crate::error::{ErrorKind, Result};
 use crate::tu::TUCtx;
-
-pub mod preprocess_phase1;
-pub mod preprocess_phase2;
-pub mod preprocess_phase3;
-pub mod preprocess_phase4;
-pub mod state;
 
 /// The type of a pass implementation function
 pub type PassFn = fn(&mut TUCtx, &[String]) -> Result<()>;
@@ -50,7 +45,7 @@ lazy_static! {
     };
 }
 
-/// List of compilation passes
+/// List of available compilation passes
 ///
 /// The 0th element is the name of the pass, as used in the command line.
 /// The 1st element is a pointer to the function implementing the pass.
@@ -62,11 +57,91 @@ pub static PASSES: &[(&str, PassFn)] = &[
     ("state_write", state::state_write),
     ("state_write_debug", state::state_write_debug),
     ("state_read_input", state::state_read_input),
-    ("preprocess_phase1", preprocess_phase1::preprocess_phase1),
-    ("preprocess_phase2", preprocess_phase2::preprocess_phase2),
-    ("preprocess_phase3", preprocess_phase3::preprocess_phase3),
-    ("preprocess_phase4", preprocess_phase4::preprocess_phase4),
+    ("phase1", front::passes::phase1),
+    ("phase2", front::passes::phase2),
+    ("phase3", front::passes::phase3),
+    ("phase4", front::passes::phase4),
 ];
+
+pub mod state {
+    use super::*;
+    use super::helper::args_assert_count;
+
+    /// Pretty-print TUCtx's primary state to stderr
+    pub fn state_print<'t>(tuctx: &mut TUCtx<'t>, args: &[String]) -> Result<()> {
+        args_assert_count("state_print", args, 0)?;
+
+        let state = tuctx.get_state()?;
+        eprintln!("{}", state);
+
+        Ok(())
+    }
+
+    /// Debug-print TUCtx's primary state to stderr
+    pub fn state_print_debug<'t>(tuctx: &mut TUCtx<'t>, args: &[String]) -> Result<()> {
+        args_assert_count("state_print_debug", args, 0)?;
+
+        let state = tuctx.get_state()?;
+        eprintln!("{:#?}", state);
+
+        Ok(())
+    }
+
+    /// Save the current primary state for later access by
+    /// [`TUCtx::saved_states()`](../../tu/struct.TUCtx.html#method.saved_states)
+    pub fn state_save<'t>(tuctx: &mut TUCtx<'t>, args: &[String]) -> Result<()> {
+        args_assert_count("state_save", args, 1)?;
+
+        tuctx.save_state(&args[0])
+    }
+
+    /// Pretty-print TUCtx's primary state to file
+    pub fn state_write<'t>(tuctx: &mut TUCtx<'t>, args: &[String]) -> Result<()> {
+        use std::io::Write;
+
+        args_assert_count("state_write", args, 0)?;
+
+        let state = tuctx.get_state()?;
+        let filename = &args[0];
+        std::fs::File::open(filename)
+            .and_then(|mut f| write!(f, "{}", state))
+            .map_err(|error| ErrorKind::OutputFileError {
+                filename: filename.to_owned(),
+                error,
+            })?;
+
+        Ok(())
+    }
+
+    /// Debug-print TUCtx's primary state to file
+    pub fn state_write_debug<'t>(tuctx: &mut TUCtx<'t>, args: &[String]) -> Result<()> {
+        use std::io::Write;
+
+        args_assert_count("state_write_debug", args, 0)?;
+
+        let state = tuctx.get_state()?;
+        let filename = &args[0];
+        std::fs::File::open(filename)
+            .and_then(|mut f| write!(f, "{:#?}", state))
+            .map_err(|error| ErrorKind::OutputFileError {
+                filename: filename.to_owned(),
+                error,
+            })?;
+
+        Ok(())
+    }
+
+    pub fn state_read_input<'t>(tuctx: &mut TUCtx<'t>, args: &[String]) -> Result<()> {
+        use crate::token::CharToken;
+        args_assert_count("state_read_input", args, 0)?;
+
+        let input = tuctx.input();
+        let tokens = CharToken::from_input(input);
+        tuctx.set_state(crate::tu::TUState::CharTokens(tokens));
+
+        Ok(())
+    }
+}
 
 /// Useful functions for writing passes
 pub mod helper {
@@ -87,15 +162,6 @@ pub mod helper {
         }
     }
 }
-
-// /// Useful functions that encapsulate setting up and using different passes
-// pub mod wrappers {
-//     pub fn wrap_phases1to3() {
-
-//     }
-//     pub fn wrap_phases1to4() {
-//     }
-// }
 
 // pub(crate) fn args_assert_at_most(
 //     pass_name: &'static str,

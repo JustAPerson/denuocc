@@ -13,14 +13,13 @@
 // You should have received a copy of  the GNU General Public License along with
 // this program. If not, see <https://www.gnu.org/licenses/>.
 
-/// Phase 4: Execute preprocessor directives
+//! Phase 4: Execute preprocessor directives
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::vec::IntoIter;
 
 use log::trace;
 
-use crate::error::Result;
 use crate::message::MessageKind::{
     ExpectedFound, Phase4BadConcatenation, Phase4DefineOperator, Phase4IllegalDoubleHash,
     Phase4IllegalSingleHash, Phase4InvalidDirective, Phase4MacroArity, Phase4MacroRedefinition,
@@ -28,10 +27,9 @@ use crate::message::MessageKind::{
     Phase4UndefineInvalidMacro, Phase4UnexpectedDirective,
 };
 use crate::message::MessagePart;
-use crate::passes::helper::args_assert_count;
-use crate::passes::preprocess_phase3::lex_one_token;
+use crate::front::lexer::lex_one_token;
 use crate::token::{self, Location, PPToken, PPTokenKind};
-use crate::tu::{TUCtx, TUState};
+use crate::tu::TUCtx;
 
 type Line = Vec<PPToken>;
 
@@ -1429,10 +1427,7 @@ fn stage_two(tuctx: &mut TUCtx, directives: Vec<Directive>) -> Vec<PPToken> {
     expander.expand()
 }
 
-pub fn preprocess_phase4(tuctx: &mut TUCtx, args: &[String]) -> Result<()> {
-    args_assert_count("preprocess_phase4", args, 0)?;
-
-    let tokens = tuctx.take_state()?.into_pptokens()?;
+pub fn preprocess(tuctx: &mut TUCtx, tokens: Vec<PPToken>) -> Vec<PPToken> {
     let lines = parse_lines(tokens);
 
     // Here we split processing into two stages. This allows a simple
@@ -1452,9 +1447,5 @@ pub fn preprocess_phase4(tuctx: &mut TUCtx, args: &[String]) -> Result<()> {
     // Thus, the first stage expands if sections, while the second stage expands
     // macros
     let directives = stage_one(tuctx, lines);
-    let output = stage_two(tuctx, directives);
-
-    tuctx.set_state(TUState::PPTokens(output));
-
-    Ok(())
+    stage_two(tuctx, directives)
 }

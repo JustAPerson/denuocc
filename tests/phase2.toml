@@ -1,5 +1,5 @@
 [suites.phase2]
-passes = ["state_read_input", "preprocess_phase1", "preprocess_phase2"]
+passes = ["state_read_input", "phase1", "phase2"]
 results_print = "chartokens_to_string"
 results_compare = "assert_chartokens_equal"
 
