@@ -119,7 +119,7 @@ onetwo
 one2
 """
 messages = [
-  "<case>:4::"
+  "<case>:1:23: concatenating `a` and `\"2\"` does not result in a valid preprocessor token",
 ]
 
 ################################################################################
@@ -426,6 +426,15 @@ output = """
 <d d>
 """
 
+[[suites.phase4.case]]
+input = """
+#define NIL(xxx) xxx
+#define G_0(arg) NIL(G_1)(arg)
+#define G_1(arg) NIL(arg)
+G_0(42)
+"""
+output = "42"
+
 ################################################################################
 # Random examples I found online
 #
@@ -477,6 +486,17 @@ foo(boo())
 """
 output = '123 "boo()"'
 
+[[suites.phase4.cases]]
+input = """
+#define recur4(C, T, E) C-T-E
+#define recur3(X) [ X ]
+#define recur2(C, X) recur4(C(X), recur4(C(X), ,),) |C|
+#define recur1(F, X) F(recur3, X)
+recur1(recur2, recur1(recur2, 1))
+"""
+output = """
+[ [ 1 ]-[ 1 ]- - - |recur3| ]-[ [ 1 ]-[ 1 ]- - - |recur3| ]- - - |recur3|
+"""
 
 ################################################################################
 # If directives
