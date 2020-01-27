@@ -143,7 +143,7 @@ impl Case {
     }
 
     fn compare_input_output(&self, suite: &Suite, input: &TUState, output: &TUState) {
-        use denuocc::token::{assert_pptokens_loose_equal, assert_chartokens_equal};
+        use denuocc::token::{assert_chartokens_equal, assert_pptokens_loose_equal};
         use ResultsCompare::*;
 
         match suite.results_compare {
@@ -161,7 +161,7 @@ impl Case {
     }
 
     fn print_result(&self, suite: &Suite, result: &TUState) {
-        use denuocc::token::{PPToken, CharToken};
+        use denuocc::token::{CharToken, PPToken};
         use ResultsPrint::*;
 
         if suite.results_print.is_none() {
@@ -169,7 +169,9 @@ impl Case {
         }
 
         match suite.results_print.unwrap() {
-            ChartokensToString => println!("{}", CharToken::to_string(result.as_chartokens().unwrap())),
+            ChartokensToString => {
+                println!("{}", CharToken::to_string(result.as_chartokens().unwrap()))
+            }
             PptokensToString => println!("{}", PPToken::to_string(result.as_pptokens().unwrap())),
         }
     }

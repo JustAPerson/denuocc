@@ -217,11 +217,6 @@ mod test {
             assert_eq!(tokens[1].kind, PPTokenKind::EndOfFile);
         }
 
-        fn case_fail(input: &str) {
-            let (_, messages) = phase3(input);
-            assert_ne!(messages.len(), 0);
-        }
-
         case("'a'");
         case("L'a'");
         case("u'a'");

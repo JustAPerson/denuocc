@@ -19,8 +19,8 @@ use std::collections::{HashMap, HashSet};
 
 use lazy_static::lazy_static;
 
-use crate::front;
 use crate::error::{ErrorKind, Result};
+use crate::front;
 use crate::tu::TUCtx;
 
 /// The type of a pass implementation function
@@ -65,8 +65,8 @@ pub static PASSES: &[(&str, PassFn)] = &[
 ];
 
 pub mod state {
-    use super::*;
     use super::helper::args_assert_count;
+    use super::*;
 
     /// Pretty-print TUCtx's primary state to stderr
     pub fn state_print<'t>(tuctx: &mut TUCtx<'t>, args: &[String]) -> Result<()> {

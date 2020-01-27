@@ -20,14 +20,8 @@ use std::vec::IntoIter;
 
 use log::trace;
 
-use crate::message::MessageKind::{
-    ExpectedFound, Phase4BadConcatenation, Phase4DefineOperator, Phase4IllegalDoubleHash,
-    Phase4IllegalSingleHash, Phase4InvalidDirective, Phase4MacroArity, Phase4MacroRedefinition,
-    Phase4MacroRedefinitionDifferent, Phase4RepeatedMacroParameter, Phase4UnclosedMacroInvocation,
-    Phase4UndefineInvalidMacro, Phase4UnexpectedDirective,
-};
-use crate::message::MessagePart;
 use crate::front::lexer::lex_one_token;
+use crate::message::{MessageKind, MessagePart};
 use crate::token::{self, Location, PPToken, PPTokenKind};
 use crate::tu::TUCtx;
 
@@ -283,7 +277,7 @@ fn line_get_identifier_and_newline(
     if identifier.kind != PPTokenKind::Identifier {
         tuctx.emit_message(
             identifier.location,
-            ExpectedFound {
+            MessageKind::ExpectedFound {
                 expected: MessagePart::Plain("identifier".to_owned()),
                 found: MessagePart::PPToken(identifier.kind),
             },
@@ -299,7 +293,7 @@ fn line_get_identifier_and_newline(
     if newline.as_str() != "\n" {
         tuctx.emit_message(
             newline.location,
-            ExpectedFound {
+            MessageKind::ExpectedFound {
                 expected: MessagePart::Plain("newline".to_owned()),
                 found: MessagePart::PPToken(newline.kind),
             },
@@ -318,7 +312,7 @@ fn parse_directive_define(tuctx: &mut TUCtx, tokens: Vec<PPToken>) -> Option<Dir
     if name_token.kind != PPTokenKind::Identifier {
         tuctx.emit_message(
             name_token.location,
-            ExpectedFound {
+            MessageKind::ExpectedFound {
                 expected: MessagePart::PPToken(PPTokenKind::Identifier),
                 found: MessagePart::PPToken(name_token.kind),
             },
@@ -356,7 +350,7 @@ fn parse_directive_define(tuctx: &mut TUCtx, tokens: Vec<PPToken>) -> Option<Dir
                     } else {
                         tuctx.emit_message(
                             token.location,
-                            Phase4RepeatedMacroParameter {
+                            MessageKind::Phase4RepeatedMacroParameter {
                                 parameter: token.value,
                             },
                         );
@@ -369,7 +363,7 @@ fn parse_directive_define(tuctx: &mut TUCtx, tokens: Vec<PPToken>) -> Option<Dir
                 (State::LParen, ..) | (State::Comma, ..) => {
                     tuctx.emit_message(
                         token.location,
-                        ExpectedFound {
+                        MessageKind::ExpectedFound {
                             expected: MessagePart::Plain("identifier or `...`".to_owned()),
                             found: MessagePart::Plain(format!("`{}`", token.value)),
                         },
@@ -384,7 +378,7 @@ fn parse_directive_define(tuctx: &mut TUCtx, tokens: Vec<PPToken>) -> Option<Dir
                 (State::Ident, ..) => {
                     tuctx.emit_message(
                         token.location,
-                        ExpectedFound {
+                        MessageKind::ExpectedFound {
                             expected: MessagePart::Plain("`,`".to_owned()),
                             found: MessagePart::Plain(format!("`{}`", token.value)),
                         },
@@ -399,7 +393,7 @@ fn parse_directive_define(tuctx: &mut TUCtx, tokens: Vec<PPToken>) -> Option<Dir
                 (State::Vararg, ..) => {
                     tuctx.emit_message(
                         token.location,
-                        ExpectedFound {
+                        MessageKind::ExpectedFound {
                             expected: MessagePart::Plain("`)`".to_owned()),
                             found: MessagePart::Plain(format!("`{}`", token.value)),
                         },
@@ -422,7 +416,7 @@ fn parse_directive_define(tuctx: &mut TUCtx, tokens: Vec<PPToken>) -> Option<Dir
         {
             if let Some(location) = singlehash {
                 if !params.iter().any(|p| p == token.as_str()) {
-                    tuctx.emit_message(location.clone(), Phase4IllegalSingleHash);
+                    tuctx.emit_message(location.clone(), MessageKind::Phase4IllegalSingleHash);
                     return None;
                 }
                 singlehash = None;
@@ -446,7 +440,7 @@ fn parse_directive_define(tuctx: &mut TUCtx, tokens: Vec<PPToken>) -> Option<Dir
             }
 
             if let Some(token) = doublehash {
-                tuctx.emit_message(token.location.clone(), Phase4IllegalDoubleHash);
+                tuctx.emit_message(token.location.clone(), MessageKind::Phase4IllegalDoubleHash);
                 return None;
             }
         }
@@ -476,7 +470,7 @@ fn parse_directive_undefine(tuctx: &mut TUCtx, tokens: Vec<PPToken>) -> Option<D
     if name_token.kind != PPTokenKind::Identifier {
         tuctx.emit_message(
             name_token.location,
-            ExpectedFound {
+            MessageKind::ExpectedFound {
                 expected: MessagePart::PPToken(PPTokenKind::Identifier),
                 found: MessagePart::PPToken(name_token.kind),
             },
@@ -492,7 +486,7 @@ fn parse_directive_undefine(tuctx: &mut TUCtx, tokens: Vec<PPToken>) -> Option<D
     } else {
         tuctx.emit_message(
             name_token.location,
-            ExpectedFound {
+            MessageKind::ExpectedFound {
                 expected: MessagePart::Plain("newline".to_owned()),
                 found: MessagePart::PPToken(name_token.kind),
             },
@@ -525,7 +519,7 @@ fn parse_directive_if_generic(
         if line_is_eof(&line) {
             tuctx.emit_message(
                 line[0].location.clone(),
-                ExpectedFound {
+                MessageKind::ExpectedFound {
                     expected: MessagePart::Directive("endif".to_owned()),
                     found: MessagePart::PPToken(PPTokenKind::EndOfFile),
                 },
@@ -564,7 +558,7 @@ fn parse_directive_if_generic(
                 if should_be_newline.as_str() != "\n" {
                     tuctx.emit_message(
                         should_be_newline.location,
-                        ExpectedFound {
+                        MessageKind::ExpectedFound {
                             expected: MessagePart::Plain("newline".to_owned()),
                             found: MessagePart::PPToken(should_be_newline.kind),
                         },
@@ -581,7 +575,7 @@ fn parse_directive_if_generic(
             (State::Else, Some(directive)) => {
                 tuctx.emit_message(
                     line[0].location.clone(),
-                    ExpectedFound {
+                    MessageKind::ExpectedFound {
                         expected: MessagePart::Directive("endif".to_owned()),
                         found: MessagePart::Directive(directive.to_owned()),
                     },
@@ -756,7 +750,7 @@ fn parse_directives(tuctx: &mut TUCtx, lines: Vec<Line>) -> Vec<Directive> {
             Some(directive) => {
                 tuctx.emit_message(
                     line_get_directive_name(&line).location.clone(),
-                    Phase4InvalidDirective {
+                    MessageKind::Phase4InvalidDirective {
                         directive: directive.to_owned(),
                     },
                 );
@@ -986,7 +980,7 @@ impl<'tu, 'drv, 'def> Expander<'tu, 'drv, 'def> {
             if original.loose_equals(&macrodef) {
                 self.tuctx.emit_message(
                     macrodef.location().clone(),
-                    Phase4MacroRedefinition {
+                    MessageKind::Phase4MacroRedefinition {
                         name: name,
                         original: original.location().clone(),
                     },
@@ -994,7 +988,7 @@ impl<'tu, 'drv, 'def> Expander<'tu, 'drv, 'def> {
             } else {
                 self.tuctx.emit_message(
                     macrodef.location().clone(),
-                    Phase4MacroRedefinitionDifferent {
+                    MessageKind::Phase4MacroRedefinitionDifferent {
                         name: name,
                         original: original.location().clone(),
                     },
@@ -1011,7 +1005,7 @@ impl<'tu, 'drv, 'def> Expander<'tu, 'drv, 'def> {
         if macrodef.is_none() {
             self.tuctx.emit_message(
                 name.location,
-                Phase4UndefineInvalidMacro { name: name.value },
+                MessageKind::Phase4UndefineInvalidMacro { name: name.value },
             )
         }
     }
@@ -1105,7 +1099,7 @@ impl<'tu, 'drv, 'def> Expander<'tu, 'drv, 'def> {
             } else if token.kind == PPTokenKind::EndOfFile {
                 self.tuctx.emit_message(
                     token.location,
-                    Phase4UnclosedMacroInvocation {
+                    MessageKind::Phase4UnclosedMacroInvocation {
                         name: func.name.clone(),
                         open: open.clone(),
                     },
@@ -1140,7 +1134,7 @@ impl<'tu, 'drv, 'def> Expander<'tu, 'drv, 'def> {
         if arguments.len() != func.params.len() {
             self.tuctx.emit_message(
                 open.clone(),
-                Phase4MacroArity {
+                MessageKind::Phase4MacroArity {
                     name: func.name.clone(),
                     expected: func.params.len(),
                     found: arguments.len(),
@@ -1301,7 +1295,7 @@ impl<'tu, 'drv, 'def> Expander<'tu, 'drv, 'def> {
                     // did not result in a (single) valid token.
                     self.tuctx.emit_message(
                         token.location,
-                        Phase4BadConcatenation {
+                        MessageKind::Phase4BadConcatenation {
                             lhs: lhs.value,
                             rhs: rhs.value,
                         },

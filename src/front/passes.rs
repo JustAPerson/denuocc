@@ -15,12 +15,12 @@
 
 //! Define pass functions for each phase of compilation
 
-use crate::front::minor::{convert_trigraphs, splice_lines, unescape};
-use crate::front::lexer::lex;
-use crate::front::preprocessor::preprocess;
-use crate::tu::{TUCtx, TUState};
-use crate::passes::helper::args_assert_count;
 use crate::error::Result;
+use crate::front::lexer::lex;
+use crate::front::minor::{convert_trigraphs, splice_lines, unescape};
+use crate::front::preprocessor::preprocess;
+use crate::passes::helper::args_assert_count;
+use crate::tu::{TUCtx, TUState};
 
 /// Calls [`front::minor::convert_trigraphs`](convert_trigraphs)
 pub fn phase1(tuctx: &mut TUCtx, args: &[String]) -> Result<()> {
@@ -32,7 +32,6 @@ pub fn phase1(tuctx: &mut TUCtx, args: &[String]) -> Result<()> {
 
     Ok(())
 }
-
 
 /// Calls [`front::minor::splice_lines`](splice_lines)
 pub fn phase2(tuctx: &mut TUCtx, args: &[String]) -> Result<()> {
