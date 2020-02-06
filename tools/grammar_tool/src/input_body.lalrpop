@@ -26,8 +26,7 @@ Alternates: Vec<Vec<types::Term>> = <first:Alternate> <rest: ("|" <Alternate>)*>
 };
 Alternate: Option<Vec<types::Term>> = {
   Term+ => Some(<>),
-  => Some(vec![types::Term::String("\"\"".to_owned())]),
-  // Term* => Some(if <>.is_empty() { vec![types::Term::String("".to_owned())] } else {<>}),
+  => Some(vec![]),
   r"//[^\n]*" => None,
 }
 Term: types::Term = {

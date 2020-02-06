@@ -17,8 +17,6 @@ use std::collections::HashSet;
 
 pub type StringSet<'g> = HashSet<Vec<&'g str>>;
 
-pub const EPSILON: &str = "\"\"";
-
 pub fn string_set_crossproduct<'v, 'g: 'v>(
     lhs: impl IntoIterator<Item = &'v Vec<&'g str>> + Clone,
     rhs: impl IntoIterator<Item = &'v Vec<&'g str>> + Clone,
@@ -33,7 +31,6 @@ pub fn string_set_crossproduct<'v, 'g: 'v>(
         rhs.into_iter()
             .map(|v| {
                 v.iter()
-                    .filter(|&&t| t != EPSILON)
                     .take(limit)
                     .cloned()
                     .collect()
@@ -42,7 +39,7 @@ pub fn string_set_crossproduct<'v, 'g: 'v>(
     } else {
         let mut output = HashSet::new();
         for left in lhs {
-            if left.iter().filter(|&&t| t != EPSILON).count() >= limit {
+            if left.len() >= limit {
                 output.insert(left.clone());
                 continue;
             }
@@ -50,7 +47,6 @@ pub fn string_set_crossproduct<'v, 'g: 'v>(
                 output.insert(
                     left.iter()
                         .chain(right.iter())
-                        .filter(|&&t| t != EPSILON)
                         .take(limit)
                         .cloned()
                         .collect(),
