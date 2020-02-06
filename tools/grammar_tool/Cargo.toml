@@ -1,0 +1,15 @@
+[package]
+name = "grammar_tool"
+version = "0.1.0"
+authors = ["Jason Priest <jason@jpriest.me>"]
+edition = "2018"
+
+build = "build.rs"
+
+[dependencies]
+lalrpop-util = "0.17.2"
+regex = "0.2.0"
+clap = "2.33"
+
+[build-dependencies]
+lalrpop = "0.17.2"

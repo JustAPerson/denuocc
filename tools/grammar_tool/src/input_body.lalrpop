@@ -1,0 +1,38 @@
+// Copyright (C) 2020 Jason Priest
+//
+// This program is free software: you can redistribute it and/or modify it under
+// the terms of the GNU General Public License as published by the Free Software
+// Foundation, either  version 3 of the  License, or (at your  option) any later
+// version.
+//
+// This program is distributed  in the hope that it will  be useful, but WITHOUT
+// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+// FOR  A PARTICULAR  PURPOSE.  See  the GNU  General  Public  License for  more
+// details.
+//
+// You should have received a copy of  the GNU General Public License along with
+// this program. If not, see <https://www.gnu.org/licenses/>.
+
+use crate::input_types as types;
+grammar;
+
+pub Body: Vec<types::Definition> = Definition* => <>.into_iter().flatten().collect();
+Definition: Option<types::Definition> = {
+  <name:Identifier> ":" <alternates:Alternates> ";" => Some(types::Definition { name, alternates }),
+  r"//[^\n]*" => None,
+}
+Alternates: Vec<Vec<types::Term>> = <first:Alternate> <rest: ("|" <Alternate>)*> => {
+  std::iter::once(first).chain(rest).flatten().collect()
+};
+Alternate: Option<Vec<types::Term>> = {
+  Term+ => Some(<>),
+  => Some(vec![types::Term::String("\"\"".to_owned())]),
+  // Term* => Some(if <>.is_empty() { vec![types::Term::String("".to_owned())] } else {<>}),
+  r"//[^\n]*" => None,
+}
+Term: types::Term = {
+  Identifier => types::Term::Identifier(<>),
+  r#""[^"]*""# => types::Term::String(<>.to_owned()),
+}
+
+Identifier: String = r"[_a-zA-Z][_a-zA-Z0-9]*" => <>.to_owned();
