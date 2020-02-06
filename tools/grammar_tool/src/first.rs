@@ -13,62 +13,15 @@
 // You should have received a copy of  the GNU General Public License along with
 // this program. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::grammar::Grammar;
 use std::collections::{HashMap, HashSet};
 
-fn is_epsilon(t: &str) -> bool {
-    t == "\"\""
-}
-
-// fn vec_clone()
-fn vec_set_crossproduct<'v, 'g: 'v>(
-    lhs: impl IntoIterator<Item = &'v Vec<&'g str>> + Clone,
-    rhs: impl IntoIterator<Item = &'v Vec<&'g str>> + Clone,
-    limit: usize,
-) -> HashSet<Vec<&'g str>> {
-    // we will be reusing these iterators multiple times, hence why we require
-    // the trait bound `lhs, rhs: Clone`
-    debug_assert!(lhs.clone().into_iter().all(|v| v.len() <= limit));
-    debug_assert!(rhs.clone().into_iter().all(|v| v.len() <= limit));
-
-    if lhs.clone().into_iter().count() == 0 {
-        rhs.into_iter()
-            .map(|v| {
-                v.iter()
-                    .filter(|t| !is_epsilon(*t))
-                    .take(limit)
-                    .cloned()
-                    .collect()
-            })
-            .collect()
-    } else {
-        let mut output = HashSet::new();
-        for left in lhs {
-            if left.iter().filter(|t| !is_epsilon(*t)).count() >= limit {
-                output.insert(left.clone());
-                continue;
-            }
-            for right in rhs.clone() {
-                output.insert(
-                    left.iter()
-                        .chain(right.iter())
-                        .filter(|t| !is_epsilon(*t))
-                        .take(limit)
-                        .cloned()
-                        .collect(),
-                );
-            }
-        }
-        output
-    }
-}
-
-pub type FirstSet<'g> = HashSet<Vec<&'g str>>;
+use crate::grammar::Grammar;
+use crate::token::{string_set_crossproduct, StringSet};
 
 #[derive(Clone, Debug)]
 pub struct First<'g> {
     k: usize,
-    sets: HashMap<&'g str, FirstSet<'g>>,
+    sets: HashMap<&'g str, StringSet<'g>>,
 }
 
 impl<'g> First<'g> {
@@ -79,14 +32,14 @@ impl<'g> First<'g> {
         }
     }
 
-    pub fn query_token(&self, nonterminal: &str) -> &FirstSet<'g> {
-        &self.sets[nonterminal]
+    pub fn query_token(&self, nonterminal: impl AsRef<str>) -> &StringSet<'g> {
+        &self.sets[nonterminal.as_ref()]
     }
 
-    pub fn query_string(&self, string: &[&str]) -> FirstSet<'g> {
-        let mut output = FirstSet::new();
+    pub fn query_string(&self, string: impl IntoIterator<Item = impl AsRef<str>>) -> StringSet<'g> {
+        let mut output = StringSet::new();
         for token in string {
-            output = vec_set_crossproduct(&output, self.query_token(token), self.k);
+            output = string_set_crossproduct(&output, self.query_token(token), self.k);
         }
         output
     }
@@ -95,7 +48,7 @@ impl<'g> First<'g> {
 struct FirstBuilder<'g> {
     grammar: &'g Grammar,
     k: usize,
-    f: HashMap<&'g str, Vec<FirstSet<'g>>>,
+    f: HashMap<&'g str, Vec<StringSet<'g>>>,
 }
 
 impl<'g> FirstBuilder<'g> {
@@ -107,7 +60,7 @@ impl<'g> FirstBuilder<'g> {
         }
     }
 
-    fn build(mut self) -> HashMap<&'g str, FirstSet<'g>> {
+    fn build(mut self) -> HashMap<&'g str, StringSet<'g>> {
         self.populate_terminals();
         self.populate_nonterminals();
 
@@ -145,7 +98,7 @@ impl<'g> FirstBuilder<'g> {
     }
 
     fn populate_nonterminal_zero(&mut self, nonterminal: &'g str) {
-        let mut set_zero = FirstSet::new();
+        let mut set_zero = StringSet::new();
         for prod in &self.grammar.production_map[nonterminal] {
             let leading_terminals = prod
                 .tokens
@@ -166,16 +119,16 @@ impl<'g> FirstBuilder<'g> {
         self.f.insert(nonterminal, vec![set_zero]);
     }
 
-    fn get_f(&mut self, token: &'g str) -> &FirstSet<'g> {
+    fn get_f(&mut self, token: &'g str) -> &StringSet<'g> {
         self.f[token].last().unwrap()
     }
 
     fn populate_nonterminal_i(&mut self, nonterminal: &'g str) -> bool {
         let k = self.k;
-        let mut next = FirstSet::new();
+        let mut next = StringSet::new();
         for prod in &self.grammar.production_map[nonterminal] {
-            next.extend(prod.tokens.iter().fold(FirstSet::new(), |acc, x| {
-                vec_set_crossproduct(&acc, self.get_f(x), k)
+            next.extend(prod.tokens.iter().fold(StringSet::new(), |acc, x| {
+                string_set_crossproduct(&acc, self.get_f(x), k)
             }));
         }
         let prev = self.get_f(nonterminal);

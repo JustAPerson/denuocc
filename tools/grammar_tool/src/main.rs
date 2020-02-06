@@ -22,12 +22,17 @@ lalrpop_mod!(
     #[allow(unused_parens)]
     input_body
 );
+
 mod first;
+mod follow;
 mod grammar;
 mod input_types;
+mod token;
 
 use first::First;
+use follow::Follow;
 use grammar::Grammar;
+use token::{StringSet, string_set_crossproduct};
 
 static AFTER_HELP: &str = "\
 grammar_tool accepts a very simple grammar format similar to YACC. The input is
