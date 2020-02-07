@@ -29,12 +29,7 @@ pub fn string_set_crossproduct<'v, 'g: 'v>(
 
     if lhs.clone().into_iter().count() == 0 {
         rhs.into_iter()
-            .map(|v| {
-                v.iter()
-                    .take(limit)
-                    .cloned()
-                    .collect()
-            })
+            .map(|v| v.iter().take(limit).cloned().collect())
             .collect()
     } else {
         let mut output = HashSet::new();

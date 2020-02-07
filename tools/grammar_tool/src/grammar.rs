@@ -158,3 +158,15 @@ fn parse_header(input: &str) -> (Option<String>, HashSet<String>, &str) {
 
     (declared_start, declared_terminals, remaining)
 }
+
+impl Grammar {
+    pub fn nonterminals_in_order(&self) -> impl Iterator<Item = &str> {
+        let mut pairs = self
+            .nonterminals
+            .iter()
+            .map(|n| (self.production_map[n][0].id, n.as_str()))
+            .collect::<Vec<_>>();
+        pairs.sort();
+        pairs.into_iter().map(|(_, p)| p)
+    }
+}

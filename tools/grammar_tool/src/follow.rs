@@ -25,23 +25,64 @@ pub struct Follow<'g> {
 
 impl<'g> Follow<'g> {
     pub fn new(grammar: &'g Grammar, first: &'g First<'g>) -> Follow<'g> {
-        let mut sets = HashMap::<&str, StringSet>::new();
-        for nonterminal in &grammar.nonterminals {
-            let mut set = StringSet::new();
-            for production in &grammar.production_map[nonterminal] {
-                for i in 0..production.tokens.len() {
-                    if production.tokens[i] == *nonterminal {
-                        set.extend(first.query_string(&production.tokens[i..]));
-                    }
-                }
-            }
-            sets.insert(nonterminal, set);
-        }
-
-        Follow { sets }
+        Builder::new(grammar, first).build()
     }
 
     pub fn query_token(&self, token: &str) -> &StringSet<'g> {
         &self.sets[token]
+    }
+}
+
+struct Builder<'g> {
+    grammar: &'g Grammar,
+    first: &'g First<'g>,
+    sets: HashMap<&'g str, StringSet<'g>>,
+}
+
+impl<'g> Builder<'g> {
+    pub fn new(grammar: &'g Grammar, first: &'g First<'g>) -> Builder<'g> {
+        Builder {
+            grammar,
+            first,
+            sets: HashMap::new(),
+        }
+    }
+
+    fn build(mut self) -> Follow<'g> {
+        self.build_normal();
+        self.build_sentential_tails(&self.grammar.start);
+
+        Follow { sets: self.sets }
+    }
+
+    fn build_normal(&mut self) {
+        for nonterminal in &self.grammar.nonterminals {
+            let mut set = StringSet::new();
+            for production in &self.grammar.productions {
+                for i in 0..production.tokens.len() {
+                    if production.tokens[i] == *nonterminal {
+                        set.extend(self.first.query_string(&production.tokens[i + 1..]));
+                    }
+                }
+            }
+            self.sets.insert(nonterminal, set);
+        }
+    }
+
+    fn build_sentential_tails(&mut self, nonterminal: &str) {
+        for production in &self.grammar.production_map[nonterminal] {
+            if let Some(last) = production
+                .tokens
+                .last()
+                .map(|t| t.as_str())
+                .filter(|t| self.grammar.nonterminals.contains(*t))
+            {
+                let unseen = self.sets.get_mut(last).unwrap().insert(Vec::new());
+                if unseen {
+                    // avoid infinitely recursing in a production like `S: a S`
+                    self.build_sentential_tails(last);
+                }
+            }
+        }
     }
 }
