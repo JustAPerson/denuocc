@@ -27,27 +27,21 @@ pub fn string_set_crossproduct<'v, 'g: 'v>(
     debug_assert!(lhs.clone().into_iter().all(|v| v.len() <= limit));
     debug_assert!(rhs.clone().into_iter().all(|v| v.len() <= limit));
 
-    if lhs.clone().into_iter().count() == 0 {
-        rhs.into_iter()
-            .map(|v| v.iter().take(limit).cloned().collect())
-            .collect()
-    } else {
-        let mut output = HashSet::new();
-        for left in lhs {
-            if left.len() >= limit {
-                output.insert(left.clone());
-                continue;
-            }
-            for right in rhs.clone() {
-                output.insert(
-                    left.iter()
-                        .chain(right.iter())
-                        .take(limit)
-                        .cloned()
-                        .collect(),
-                );
-            }
+    let mut output = HashSet::new();
+    for left in lhs {
+        if left.len() >= limit {
+            output.insert(left.clone());
+            continue;
         }
-        output
+        for right in rhs.clone() {
+            output.insert(
+                left.iter()
+                    .chain(right.iter())
+                    .take(limit)
+                    .cloned()
+                    .collect(),
+            );
+        }
     }
+    output
 }
