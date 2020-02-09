@@ -134,8 +134,6 @@ input = """
 #define test different
 """
 messages = [
-  "<case>:2:8: macro `test` was originally defined here: <case>:1:8",
-  "<case>:3:8: macro `test` was originally defined here: <case>:1:8",
   "<case>:4:8: macro `test` was originally defined differently here: <case>:1:8"
 ]
 
@@ -406,6 +404,32 @@ s);
 "hello";
 "hello" ", world"
 '''
+
+[[suites.phase4.cases]]
+input = '''
+#define OBJ_LIKE (1-1)
+#define OBJ_LIKE /* white space */ (1-1) /* other */
+#define FUNC_LIKE(a) ( a )
+#define FUNC_LIKE( a )( /* note the white space */ \
+                  a /* other stuff on this line
+                  */ )
+'''
+
+[[suites.phase4.cases]]
+input = '''
+#define OBJ_LIKE (1-1)
+#define FUNC_LIKE(a) ( a )
+#define OBJ_LIKE (0) // different token sequence
+#define OBJ_LIKE (1 - 1) // different white space
+#define FUNC_LIKE(b) ( a ) // different parameter usage
+#define FUNC_LIKE(b) ( b ) // different parameter spelling
+'''
+messages = [
+  "<case>:3:8: macro `OBJ_LIKE` was originally defined differently here: <case>:1:8",
+  "<case>:4:8: macro `OBJ_LIKE` was originally defined differently here: <case>:1:8",
+  "<case>:5:8: macro `FUNC_LIKE` was originally defined differently here: <case>:2:8",
+  "<case>:6:8: macro `FUNC_LIKE` was originally defined differently here: <case>:2:8",
+]
 
 [[suites.phase4.cases]]
 input = """

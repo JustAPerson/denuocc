@@ -71,7 +71,39 @@ impl MacroDef {
         }
     }
 
-    fn loose_equals(&self, other: &Self) -> bool {
+    fn equivalent(&self, other: &Self) -> bool {
+        // Compare two sequences of tokens
+        //
+        // White space is kinda significant. The whitespace at beginning or end
+        // is insignificant, but internal whitespace matters (but consider
+        // multiple adjacent whitespace tokens as 1)
+        fn compare_tokens(lhs: &[PPToken], rhs: &[PPToken]) -> bool {
+            let mut lhs = tokens_trim_whitespace(lhs).iter().peekable();
+            let mut rhs = tokens_trim_whitespace(rhs).iter().peekable();
+
+            while let (Some(left), Some(right)) = (lhs.next(), rhs.next()) {
+                if left.kind != right.kind {
+                    return false
+                }
+                if left.kind == PPTokenKind::Whitespace {
+                    // both left and right are whitespace
+                    // now we don't care how many adjacent whitespace tokens there are
+
+                    while lhs.peek().map(|t| t.is_whitespace()) == Some(true) {
+                        lhs.next();
+                    }
+                    while rhs.peek().map(|t| t.is_whitespace()) == Some(true) {
+                        rhs.next();
+                    }
+                } else if left.value != right.value {
+                    return false
+                }
+            }
+
+            // sequences are equal if we have consumed both in their entirety
+            lhs.next().is_none() && rhs.next().is_none()
+        }
+
         match (self, other) {
             (
                 MacroDef::Object(MacroObject {
@@ -82,7 +114,7 @@ impl MacroDef {
                     replacement: other_rep,
                     ..
                 }),
-            ) => token::pptokens_loose_equal(orig_rep, other_rep),
+            ) => compare_tokens(orig_rep, other_rep),
             (
                 MacroDef::Function(MacroFunction {
                     params: orig_params,
@@ -99,7 +131,7 @@ impl MacroDef {
             ) => {
                 orig_params == other_params
                     && orig_vararg == other_vararg
-                    && token::pptokens_loose_equal(orig_rep, other_rep)
+                    && compare_tokens(orig_rep, other_rep)
             }
             _ => false,
         }
@@ -989,15 +1021,7 @@ impl<'tu, 'drv, 'def> Expander<'tu, 'drv, 'def> {
         let name = macrodef.name().to_owned();
 
         if let Some(original) = self.defines.get(&name) {
-            if original.loose_equals(&macrodef) {
-                self.tuctx.emit_message(
-                    macrodef.location().clone(),
-                    MessageKind::Phase4MacroRedefinition {
-                        name: name,
-                        original: original.location().clone(),
-                    },
-                )
-            } else {
+            if !original.equivalent(&macrodef) {
                 self.tuctx.emit_message(
                     macrodef.location().clone(),
                     MessageKind::Phase4MacroRedefinitionDifferent {

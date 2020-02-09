@@ -67,10 +67,6 @@ pub enum MessageKind {
         found: usize,
         vararg: bool,
     },
-    Phase4MacroRedefinition {
-        name: String,
-        original: Location,
-    },
     Phase4MacroRedefinitionDifferent {
         name: String,
         original: Location,
@@ -163,12 +159,6 @@ impl std::fmt::Display for Message {
                     "arguments"
                 },
                 found
-            ),
-            Phase4MacroRedefinition { name, original } => write!(
-                f,
-                "macro `{}` was originally defined here: {}",
-                name,
-                original.fmt_begin(),
             ),
             Phase4MacroRedefinitionDifferent { name, original } => write!(
                 f,
