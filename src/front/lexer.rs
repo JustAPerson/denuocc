@@ -273,7 +273,12 @@ mod test {
         assert_eq!(tokens[2].value, "/* whitespace */");
         assert_eq!(tokens[2].kind, PPTokenKind::Whitespace);
 
-        // TODO examples in 6.4.9
+        let (tokens, _) = phase3("/* \n */");
+        assert_eq!(tokens.len(), 2);
+        assert_eq!(tokens[0].kind, PPTokenKind::Whitespace);
+        assert_eq!(tokens[1].kind, PPTokenKind::EndOfFile);
+
+        // TODO other comment examples in 6.4.9
     }
 
     #[test]
