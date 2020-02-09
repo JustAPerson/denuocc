@@ -217,7 +217,6 @@ pub fn assert_chartokens_equal(a: &[CharToken], b: &[CharToken]) {
 /// The different kinds of [`PPToken`]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum PPTokenKind {
-    Placemarker,
     EndOfFile,
 
     Whitespace,
@@ -290,7 +289,6 @@ impl std::cmp::PartialEq for PPToken {
     fn eq(&self, rhs: &Self) -> bool {
         use PPTokenKind::*;
         match (self.kind, rhs.kind) {
-            (Placemarker, Placemarker) => self.value == rhs.value,
             (EndOfFile, EndOfFile) => self.value == rhs.value,
             (Whitespace, Whitespace) => self.value == rhs.value,
             (HeaderName, HeaderName) => self.value == rhs.value,

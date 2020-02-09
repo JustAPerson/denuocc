@@ -322,11 +322,11 @@ messages = ["<case>:1:7: macro `UNDEFINED` does not exist"]
 [[suites.phase4.cases]]
 input = '''
 #define hash_hash # ## #
-hash_hash // should result in empty string for WHATEVER reason
+hash_hash // now our implementation results in ## but not gcc/clang...
 a
 b hash_hash c // should result in `b ## c`
 '''
-output = 'a b ## c'
+output = '## a b ## c'
 
 [[suites.phase4.cases]]
 # ignored = true
@@ -407,6 +407,17 @@ s);
 
 [[suites.phase4.cases]]
 input = '''
+#define t(x,y,z) x ## y ## z
+int j[] = { t(1,2,3), t(,4,5), t(6,,7), t(8,9,),
+            t(10,,),  t(,11,), t(,,12), t(,,) };
+'''
+output = '''
+int j[] = { 123, 45, 67, 89,
+            10, 11, 12, };
+'''
+
+[[suites.phase4.cases]]
+input = '''
 #define OBJ_LIKE (1-1)
 #define OBJ_LIKE /* white space */ (1-1) /* other */
 #define FUNC_LIKE(a) ( a )
@@ -430,6 +441,18 @@ messages = [
   "<case>:5:8: macro `FUNC_LIKE` was originally defined differently here: <case>:2:8",
   "<case>:6:8: macro `FUNC_LIKE` was originally defined differently here: <case>:2:8",
 ]
+
+################################################################################
+# Not from the standard
+################################################################################
+
+[[suites.phase4.cases]]
+input = '''
+#define multicat(a,b,c,d) start a ## b ## c ## d end
+multicat(,,,)
+multicat(,,1,2)
+'''
+output = 'start end start 12 end'
 
 [[suites.phase4.cases]]
 input = """

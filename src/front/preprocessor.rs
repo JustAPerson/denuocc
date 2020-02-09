@@ -1209,6 +1209,7 @@ impl<'tu, 'drv, 'def> Expander<'tu, 'drv, 'def> {
         );
 
         let mut output = Vec::new();
+        let mut skip_rhs_of_concat = false;
         while let Some(token) = input.next() {
             trace!("Expander::replace() loop token={}", &token);
             trace!(
@@ -1241,9 +1242,12 @@ impl<'tu, 'drv, 'def> Expander<'tu, 'drv, 'def> {
 
                         // index safe here because we reject macros that end in ##
                         let rhs = input.as_slice()[0].as_str();
-                        if let Some(rhs_replacement) = parameters.get(rhs) {
-                            input.next(); // consume rhs macro name
-                            output.append(&mut rhs_replacement.clone());
+                        if parameters.contains_key(rhs) {
+                            // do not consume rhs macro name
+
+                            // this parameter will get substituted but not
+                            // expanded by the code that handles this boolean
+                            skip_rhs_of_concat = true;
                         } else {
                             // push nothing to output
                             // so both the lhs and the `##` are ignored
@@ -1252,8 +1256,11 @@ impl<'tu, 'drv, 'def> Expander<'tu, 'drv, 'def> {
                         // Leave `##` in input so it can be read in next
                         // iteration of loop. The concatenation will be handled
                         // by a different clause of the outer-most if statement
-                        output.append(&mut replacement.clone());
+                        output.extend_from_slice(replacement);
                     }
+                } else if skip_rhs_of_concat {
+                    skip_rhs_of_concat = false;
+                    output.extend_from_slice(replacement);
                 } else {
                     // Plain parameter substitution, so take the parameter value and expand it
                     let expander =
