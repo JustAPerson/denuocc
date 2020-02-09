@@ -17,6 +17,7 @@
 
 use std::rc::Rc;
 
+use log::{trace, debug};
 use lazy_static::lazy_static;
 use regex::{Regex, RegexSet};
 
@@ -27,8 +28,8 @@ use crate::tu::TUCtx;
 static TOKEN_PATTERNS: &[(&'static str, PPTokenKind)] = &[
     ("^.", PPTokenKind::Other),
     (r"^( |\n|\f|\r|\t|\v)", PPTokenKind::Whitespace),
-    (r"^(//.+)|(?s:/\*.*?\*/)", PPTokenKind::Whitespace),
-    (r"^[[:alpha:]_][[:word:]]*", PPTokenKind::Identifier), // TODO unicode
+    (r"^((//.+)|(?s:/\*.*?\*/))", PPTokenKind::Whitespace),
+    (r"^([[:alpha:]_][[:word:]]*)", PPTokenKind::Identifier), // TODO unicode
     (
         r"^\.?[0-9](([eEpP][\+\-])|[[:word:]])*\.?",
         PPTokenKind::PPNumber,
@@ -129,7 +130,9 @@ pub fn lex(tuctx: &mut TUCtx, tokens: Vec<CharToken>) -> Vec<PPToken> {
     let mut output = Vec::new();
 
     while i < string.len() {
+        trace!("lex() i={:?} string[i..]={:?}", i, &string[i..]);
         let (slice, kind) = lex_one_token(&string[i..]);
+        debug!("lex() slice={:?} kind={:?}", slice, kind);
 
         let len = slice.len();
         let first = &tokens[i];
@@ -261,6 +264,14 @@ mod test {
 
         let (tokens, _) = phase3("/* comment */\n");
         assert_eq!(tokens.len(), 3);
+
+        let (tokens, _) = phase3("test /* whitespace */");
+        assert_eq!(tokens.len(), 4);
+        assert_eq!(tokens[0].value, "test");
+        assert_eq!(tokens[0].kind, PPTokenKind::Identifier);
+        assert_eq!(tokens[1].kind, PPTokenKind::Whitespace);
+        assert_eq!(tokens[2].value, "/* whitespace */");
+        assert_eq!(tokens[2].kind, PPTokenKind::Whitespace);
 
         // TODO examples in 6.4.9
     }
