@@ -27,7 +27,7 @@ use crate::tu::TUCtx;
 
 static TOKEN_PATTERNS: &[(&'static str, PPTokenKind)] = &[
     ("^.", PPTokenKind::Other),
-    (r"^( |\n|\f|\r|\t|\v)", PPTokenKind::Whitespace),
+    (r"^(( |\f|\r|\t|\v)+|(\n))", PPTokenKind::Whitespace),
     (r"^((//.+)|(?s:/\*.*?\*/))", PPTokenKind::Whitespace),
     (r"^([[:alpha:]_][[:word:]]*)", PPTokenKind::Identifier), // TODO unicode
     (
