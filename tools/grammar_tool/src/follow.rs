@@ -71,16 +71,27 @@ impl<'g> Builder<'g> {
 
     fn build_sentential_tails(&mut self, nonterminal: &str) {
         for production in &self.grammar.production_map[nonterminal] {
-            if let Some(last) = production
+            let tail_nonterminals = production
                 .tokens
-                .last()
+                .iter()
+                .rev()
+                .take_while(|t| self.grammar.nonterminals.contains(*t))
                 .map(|t| t.as_str())
-                .filter(|t| self.grammar.nonterminals.contains(*t))
-            {
+                .collect::<Vec<_>>();
+            for last in tail_nonterminals {
+                // examine nonterminals working backwards from the end of the
+                // production. halt after encountering the first terminal
                 let unseen = self.sets.get_mut(last).unwrap().insert(Vec::new());
                 if unseen {
                     // avoid infinitely recursing in a production like `S: a S`
                     self.build_sentential_tails(last);
+                }
+
+                // if this nonterminal can expand to an empty string, then the
+                // previous nonterminal in the production could also be a
+                // sentential tail
+                if !self.first.query_token(last).contains(&Vec::new()) {
+                    break;
                 }
             }
         }

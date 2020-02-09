@@ -17,6 +17,12 @@ use std::collections::HashSet;
 
 pub type StringSet<'g> = HashSet<Vec<&'g str>>;
 
+pub fn empty_string_set() -> StringSet<'static> {
+    let mut set = StringSet::new();
+    set.insert(Vec::new());
+    set
+}
+
 pub fn string_set_crossproduct<'v, 'g: 'v>(
     lhs: impl IntoIterator<Item = &'v Vec<&'g str>> + Clone,
     rhs: impl IntoIterator<Item = &'v Vec<&'g str>> + Clone,

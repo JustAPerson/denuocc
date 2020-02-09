@@ -16,7 +16,7 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::grammar::Grammar;
-use crate::token::{string_set_crossproduct, StringSet};
+use crate::token::{empty_string_set, string_set_crossproduct, StringSet};
 
 #[derive(Clone, Debug)]
 pub struct First<'g> {
@@ -37,18 +37,16 @@ impl<'g> First<'g> {
     }
 
     pub fn query_string(&self, string: impl IntoIterator<Item = impl AsRef<str>>) -> StringSet<'g> {
-        let mut output = StringSet::new();
-        for token in string {
-            output = string_set_crossproduct(&output, self.query_token(token), self.k);
-        }
-        output
+        string.into_iter().fold(empty_string_set(), |acc, x| {
+            string_set_crossproduct(&acc, self.query_token(x), self.k)
+        })
     }
 }
 
 struct FirstBuilder<'g> {
     grammar: &'g Grammar,
     k: usize,
-    f: HashMap<&'g str, Vec<StringSet<'g>>>,
+    f: HashMap<&'g str, StringSet<'g>>,
 }
 
 impl<'g> FirstBuilder<'g> {
@@ -65,16 +63,14 @@ impl<'g> FirstBuilder<'g> {
         self.populate_nonterminals();
 
         self.f
-            .into_iter()
-            .map(|(k, mut v)| (k, v.pop().unwrap()))
-            .collect()
     }
+
     fn populate_terminals(&mut self) {
         for terminal in &self.grammar.terminals {
             let mut set = HashSet::new();
             set.insert(vec![terminal.as_str()]);
 
-            self.f.insert(terminal, vec![set]);
+            self.f.insert(terminal, set);
         }
     }
 
@@ -83,12 +79,16 @@ impl<'g> FirstBuilder<'g> {
             self.populate_nonterminal_zero(nonterminal);
         }
         for _ in 1.. {
-            let mut done = true;
+            let mut changes = Vec::new();
             for nonterminal in &self.grammar.nonterminals {
-                done &= self.populate_nonterminal_i(nonterminal);
+                if let Some(change) = self.populate_nonterminal_i(nonterminal) {
+                    changes.push((nonterminal.as_str(), change));
+                }
             }
-            if done {
+            if changes.is_empty() {
                 break;
+            } else {
+                self.f.extend(changes);
             }
         }
     }
@@ -116,28 +116,23 @@ impl<'g> FirstBuilder<'g> {
                 );
             }
         }
-        self.f.insert(nonterminal, vec![set_zero]);
+        self.f.insert(nonterminal, set_zero);
     }
 
-    fn get_f(&mut self, token: &'g str) -> &StringSet<'g> {
-        self.f[token].last().unwrap()
-    }
-
-    fn populate_nonterminal_i(&mut self, nonterminal: &'g str) -> bool {
+    fn populate_nonterminal_i(&mut self, nonterminal: &'g str) -> Option<StringSet<'g>> {
         let k = self.k;
         let mut next = StringSet::new();
         for prod in &self.grammar.production_map[nonterminal] {
-            next.extend(prod.tokens.iter().fold(StringSet::new(), |acc, x| {
-                string_set_crossproduct(&acc, self.get_f(x), k)
-            }));
+            let prod_set = prod.tokens.iter().fold(empty_string_set(), |acc, x| {
+                string_set_crossproduct(&acc, &self.f[x.as_str()], k)
+            });
+            next.extend(prod_set);
         }
-        let prev = self.get_f(nonterminal);
+        let prev = &self.f[nonterminal];
         if !next.is_subset(prev) {
-            let next = &next | prev;
-            self.f.get_mut(nonterminal).unwrap().push(next);
-            false
+            Some(&next | prev)
         } else {
-            true
+            None
         }
     }
 }
