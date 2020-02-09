@@ -440,7 +440,7 @@ fn parse_directive_define(tuctx: &mut TUCtx, tokens: Vec<PPToken>) -> Option<Dir
             .filter(|t| !t.is_whitespace_not_newline())
         {
             if let Some(location) = singlehash {
-                if !params.iter().any(|p| p == token.as_str()) {
+                if !(params.contains(&token.value) || (vararg && token.value == "__VA_ARGS__")) {
                     tuctx.emit_message(location.clone(), MessageKind::Phase4IllegalSingleHash);
                     return None;
                 }
