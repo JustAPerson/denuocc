@@ -64,13 +64,6 @@ impl MacroDef {
         }
     }
 
-    pub fn replacement(&self) -> &[PPToken] {
-        match self {
-            MacroDef::Object(object) => &object.replacement,
-            MacroDef::Function(func) => &func.replacement,
-        }
-    }
-
     pub fn as_function(&self) -> &MacroFunction {
         match self {
             MacroDef::Function(func) => &func,
@@ -831,7 +824,30 @@ fn disable_macro_recursion(tokens: &mut Vec<PPToken>, name: &PPToken) {
     }
 }
 
+/// Escape string literals and character constants
+///
+/// We wish to place these tokens within a string literal, so we only care about
+/// escaping backslashes and double quotes. In either case, we prepend those
+/// characters with another backslash.
+fn escape(output: &mut String, token: &PPToken) {
+    for c in token.value.chars() {
+        match c {
+            '\\' => {
+                output.push('\\');
+                output.push('\\');
+            }
+            '"' => {
+                output.push('\\');
+                output.push('"');
+            }
+            c => output.push(c),
+        }
+    }
+}
+
 fn stringize(input: &[PPToken], location: Location) -> PPToken {
+    use PPTokenKind::*;
+
     let mut output = String::new();
     let inner = tokens_trim_whitespace(input);
 
@@ -840,20 +856,16 @@ fn stringize(input: &[PPToken], location: Location) -> PPToken {
 
     for token in inner {
         trace!("stringize() token={:?}", &token);
-        if token.kind == PPTokenKind::Whitespace {
-            if output.chars().next_back() != Some(' ') {
-                output.push(' ');
+        match token.kind {
+            Whitespace => {
+                // sequences of multiple whitespace tokens should be replaced
+                // with only one space character.
+                if output.chars().next_back() != Some(' ') {
+                    output.push(' ');
+                }
             }
-        } else if token.kind == PPTokenKind::StringLiteral {
-            // String literal value contains the double quotes, which we need to
-            // escape. Thus, we first push a backslash for the first quote, then
-            // we have push the entire string and insert a backslash before the
-            // last quote.
-            output.push('\\');
-            output.push_str(&token.value);
-            output.insert(output.len() - 1, '\\');
-        } else {
-            output.push_str(&token.value);
+            StringLiteral | CharacterConstant => escape(&mut output, &token),
+            _ => output.push_str(&token.value),
         }
     }
 
