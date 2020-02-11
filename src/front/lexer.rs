@@ -17,12 +17,13 @@
 
 use std::rc::Rc;
 
-use log::{trace, debug};
 use lazy_static::lazy_static;
+use log::{debug, trace};
 use regex::{Regex, RegexSet};
 
-use crate::message::MessageKind;
-use crate::token::{CharToken, DirectLocation, PPToken, PPTokenKind, Position};
+use crate::front::location::{DirectLocation, Position};
+use crate::front::message::MessageKind;
+use crate::front::token::{CharToken, PPToken, PPTokenKind};
 use crate::tu::TUCtx;
 
 static TOKEN_PATTERNS: &[(&'static str, PPTokenKind)] = &[
@@ -184,7 +185,7 @@ pub fn lex(tuctx: &mut TUCtx, tokens: Vec<CharToken>) -> Vec<PPToken> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::message::Message;
+    use crate::front::message::Message;
 
     fn phase3(input: &str) -> (Vec<PPToken>, Vec<Message>) {
         let mut driver = crate::driver::Driver::new();

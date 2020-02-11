@@ -20,7 +20,7 @@ use std::rc::Rc;
 
 use crate::error::{ErrorKind, Result};
 use crate::flags::Flags;
-use crate::message::Message;
+use crate::front::message::Message;
 use crate::passes::PASS_FUNCTIONS;
 use crate::tu::TUCtx;
 

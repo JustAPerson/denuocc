@@ -1,4 +1,4 @@
-// Copyright (C) 2019 Jason Priest
+// Copyright (C) 2019 - 2020 Jason Priest
 //
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the GNU General Public License as published by the Free Software
@@ -15,8 +15,9 @@
 
 //! User visible messages about the input file
 
+use crate::front::location::Location;
 use crate::front::minor::Encoding;
-use crate::token::{Location, PPTokenKind};
+use crate::front::token::PPTokenKind;
 
 #[derive(Copy, Clone, Debug)]
 pub enum Severity {

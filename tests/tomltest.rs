@@ -143,25 +143,25 @@ impl Case {
     }
 
     fn compare_input_output(&self, suite: &Suite, input: &TUState, output: &TUState) {
-        use denuocc::token::{assert_chartokens_equal, assert_pptokens_loose_equal};
+        use denuocc::front::token::{CharToken, PPToken};
         use ResultsCompare::*;
 
         match suite.results_compare {
             AssertChartokensEqual => {
                 let input = input.as_chartokens().unwrap();
                 let output = output.as_chartokens().unwrap();
-                assert_chartokens_equal(input, output);
+                CharToken::assert_equal(input, output);
             }
             AssertPptokensLooseEqual => {
                 let input = input.as_pptokens().unwrap();
                 let output = output.as_pptokens().unwrap();
-                assert_pptokens_loose_equal(input, output);
+                PPToken::assert_loose_equal(input, output);
             }
         }
     }
 
     fn print_result(&self, suite: &Suite, result: &TUState) {
-        use denuocc::token::{CharToken, PPToken};
+        use denuocc::front::token::{CharToken, PPToken};
         use ResultsPrint::*;
 
         if suite.results_print.is_none() {

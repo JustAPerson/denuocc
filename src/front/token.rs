@@ -13,12 +13,8 @@
 // You should have received a copy of  the GNU General Public License along with
 // this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Compiler front-end; everything about C syntax
+pub mod char_token;
+pub mod preprocessor_token;
 
-pub mod lexer;
-pub mod location;
-pub mod message;
-pub mod minor;
-pub mod passes;
-pub mod preprocessor;
-pub mod token;
+pub use self::char_token::CharToken;
+pub use self::preprocessor_token::{PPToken, PPTokenKind};

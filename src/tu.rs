@@ -20,8 +20,9 @@ use std::rc::Rc;
 
 use crate::driver::{Driver, Input};
 use crate::error::{ErrorKind, Result};
-use crate::message::{Message, MessageKind};
-use crate::token::{CharToken, Location, PPToken};
+use crate::front::location::Location;
+use crate::front::message::{Message, MessageKind};
+use crate::front::token::{CharToken, PPToken};
 
 /// Translation Unit State
 ///
@@ -31,8 +32,8 @@ use crate::token::{CharToken, Location, PPToken};
 /// [`TUCtx`]: ./struct.TUCtx.html
 #[derive(Clone, Debug)]
 pub enum TUState {
-    CharTokens(Vec<crate::token::CharToken>),
-    PPTokens(Vec<crate::token::PPToken>),
+    CharTokens(Vec<CharToken>),
+    PPTokens(Vec<PPToken>),
 }
 
 macro_rules! into_methods {
@@ -69,8 +70,8 @@ impl TUState {
     }
 
     into_methods! {
-        (into_chartokens, as_chartokens, CharTokens, Vec<crate::token::CharToken>),
-        (into_pptokens, as_pptokens, PPTokens, Vec<crate::token::PPToken>)
+        (into_chartokens, as_chartokens, CharTokens, Vec<CharToken>),
+        (into_pptokens, as_pptokens, PPTokens, Vec<PPToken>)
     }
 }
 

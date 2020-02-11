@@ -1,4 +1,4 @@
-// Copyright (C) 2019 Jason Priest
+// Copyright (C) 2019 - 2020 Jason Priest
 //
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the GNU General Public License as published by the Free Software
@@ -21,8 +21,9 @@ use std::vec::IntoIter;
 use log::trace;
 
 use crate::front::lexer::lex_one_token;
-use crate::message::{MessageKind, MessagePart};
-use crate::token::{self, Location, PPToken, PPTokenKind};
+use crate::front::location::{DirectLocation, Location, Position};
+use crate::front::message::{MessageKind, MessagePart};
+use crate::front::token::{PPToken, PPTokenKind};
 use crate::tu::TUCtx;
 
 type Line = Vec<PPToken>;
@@ -31,7 +32,7 @@ type Line = Vec<PPToken>;
 struct MacroObject {
     name: String,
     replacement: Vec<PPToken>,
-    location: token::Location,
+    location: Location,
 }
 
 #[derive(Clone, Debug)]
@@ -40,7 +41,7 @@ struct MacroFunction {
     replacement: Vec<PPToken>,
     params: Vec<String>,
     vararg: bool,
-    location: token::Location,
+    location: Location,
 }
 
 #[derive(Clone, Debug)]
@@ -57,7 +58,7 @@ impl MacroDef {
         }
     }
 
-    pub fn location(&self) -> &token::Location {
+    pub fn location(&self) -> &Location {
         match self {
             MacroDef::Object(object) => &object.location,
             MacroDef::Function(func) => &func.location,
@@ -83,9 +84,9 @@ impl MacroDef {
 
             while let (Some(left), Some(right)) = (lhs.next(), rhs.next()) {
                 if left.kind != right.kind {
-                    return false
+                    return false;
                 }
-                if left.kind == PPTokenKind::Whitespace {
+                if left.is_whitespace() {
                     // both left and right are whitespace
                     // now we don't care how many adjacent whitespace tokens there are
 
@@ -96,7 +97,7 @@ impl MacroDef {
                         rhs.next();
                     }
                 } else if left.value != right.value {
-                    return false
+                    return false;
                 }
             }
 
@@ -192,7 +193,7 @@ fn line_is_directive(line: &[PPToken]) -> Option<&str> {
     if first.map(|t| t.as_str()) != Some("#") {
         return None;
     }
-    if second.map(|t| t.kind) != Some(PPTokenKind::Identifier) {
+    if second.is_none() || !second.unwrap().is_ident() {
         return None;
     }
 
@@ -299,7 +300,7 @@ fn line_get_identifier_and_newline(
         .skip_while(PPToken::is_whitespace_not_newline)
         .next()
         .unwrap();
-    if identifier.kind != PPTokenKind::Identifier {
+    if !identifier.is_ident() {
         tuctx.emit_message(
             identifier.location,
             MessageKind::ExpectedFound {
@@ -334,7 +335,7 @@ fn parse_directive_define(tuctx: &mut TUCtx, tokens: Vec<PPToken>) -> Option<Dir
     line_skip_whitespace_until_newline(&mut token_iter);
 
     let name_token = token_iter.next().unwrap();
-    if name_token.kind != PPTokenKind::Identifier {
+    if !name_token.is_ident() {
         tuctx.emit_message(
             name_token.location,
             MessageKind::ExpectedFound {
@@ -492,7 +493,7 @@ fn parse_directive_undefine(tuctx: &mut TUCtx, tokens: Vec<PPToken>) -> Option<D
     line_skip_whitespace_until_newline(&mut token_iter);
 
     let name_token = token_iter.next().unwrap();
-    if name_token.kind != PPTokenKind::Identifier {
+    if !name_token.is_ident() {
         tuctx.emit_message(
             name_token.location,
             MessageKind::ExpectedFound {
@@ -696,13 +697,13 @@ fn parse_lines(mut tokens: Vec<PPToken>) -> Vec<Line> {
         // use EOF to get location for newline
         debug_assert_eq!(tokens[0].kind, PPTokenKind::EndOfFile);
         let input = match &tokens[0].location {
-            token::Location::Direct(loc) => &loc.input,
-            token::Location::Indirect(..) => unreachable!(),
+            Location::Direct(loc) => &loc.input,
+            Location::Indirect(..) => unreachable!(),
         };
 
-        location = token::Location::Direct(token::DirectLocation {
+        location = Location::Direct(DirectLocation {
             input: Rc::clone(input),
-            begin: token::Position::default(),
+            begin: Position::default(),
             len: 1,
         })
     };

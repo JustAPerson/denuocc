@@ -134,7 +134,7 @@ pub mod state {
     }
 
     pub fn state_read_input<'t>(tuctx: &mut TUCtx<'t>, args: &[String]) -> Result<()> {
-        use crate::token::CharToken;
+        use crate::front::token::CharToken;
         args_assert_count("state_read_input", args, 0)?;
 
         let input = tuctx.input();

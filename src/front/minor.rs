@@ -17,8 +17,9 @@
 
 use std::convert::TryFrom;
 
-use crate::message::MessageKind;
-use crate::token::{CharToken, Location, PPToken, PPTokenKind};
+use crate::front::location::Location;
+use crate::front::message::MessageKind;
+use crate::front::token::{CharToken, PPToken, PPTokenKind};
 use crate::tu::TUCtx;
 
 /// Phase 1: Convert trigraphs
