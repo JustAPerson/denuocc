@@ -23,7 +23,6 @@ pub enum PPTokenKind {
     EndOfFile,
 
     Whitespace,
-    HeaderName,
     Identifier,
     IdentifierNonExpandable,
     PPNumber,
@@ -149,7 +148,6 @@ impl std::cmp::PartialEq for PPToken {
         match (self.kind, rhs.kind) {
             (EndOfFile, EndOfFile) => self.value == rhs.value,
             (Whitespace, Whitespace) => self.value == rhs.value,
-            (HeaderName, HeaderName) => self.value == rhs.value,
             (Identifier, Identifier) => self.value == rhs.value,
             (IdentifierNonExpandable, IdentifierNonExpandable) => self.value == rhs.value,
 
