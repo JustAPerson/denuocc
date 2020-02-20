@@ -11,8 +11,12 @@ my own.
 
 # License
 This project is dual licensed under the terms of the MIT license and the Apache
-License Version 2.0 at your option. See [./LICENSE-MIT][] and
-[./LICENSE-APACHE][] for details.
+License Version 2.0 at your option. See [./LICENSE-MIT][MIT] and
+[./LICENSE-APACHE][APACHE] for details.
+
+[MIT]: ./LICENSE-MIT
+[APACHE]: ./LICENSE-APACHE
+
 
 ## Contribution
 Unless you explicitly state otherwise, any contribution intentionally submitted
