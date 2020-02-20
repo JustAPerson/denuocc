@@ -4,12 +4,17 @@ version = "0.1.0"
 authors = ["Jason Priest <jason@jpriest.me>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
+description = "A tool for understanding LL(k) grammars"
+categories = ["parsing", "command-line-utilities"]
+keywords = ["LL", "recursive", "descent", "parsing", "yacc"]
+repository = "https://github.com/JustAPerson/denuocc/tree/master/tools/grammar_tool"
 
-build = "build.rs"
+readme = "./README.md"
+build = "./build.rs"
 
 [dependencies]
 lalrpop-util = "0.17.2"
-regex = "0.2.0"
+regex = "1"
 clap = "2.33"
 
 [build-dependencies]
