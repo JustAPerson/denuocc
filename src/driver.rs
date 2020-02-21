@@ -12,6 +12,7 @@ use crate::error::{ErrorKind, Result};
 use crate::flags::Flags;
 use crate::front::message::Message;
 use crate::passes::PASS_FUNCTIONS;
+use crate::target;
 use crate::tu::TUCtx;
 
 /// A translation unit input
@@ -23,13 +24,14 @@ pub struct Input {
 }
 
 /// Main interface for invoking denuocc
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct Driver {
     /// A map from input names to their contents
     pub inputs: HashMap<String, Rc<Input>>,
     pub flags: Flags,
 
     pub messages: HashMap<String, Vec<Message>>,
+    pub target: Box<dyn target::Target>,
 }
 
 impl Driver {
@@ -172,6 +174,11 @@ impl Driver {
 
     /// Write output files to disk
     pub fn write_output(&self) {}
+
+    /// Return the target we are generating code for
+    pub fn target(&self) -> &dyn target::Target {
+        &*self.target
+    }
 }
 
 impl std::default::Default for Driver {
@@ -181,6 +188,7 @@ impl std::default::Default for Driver {
 
             inputs: HashMap::new(),
             messages: HashMap::new(),
+            target: Box::new(target::linux::X64Linux),
         }
     }
 }

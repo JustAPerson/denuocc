@@ -10,6 +10,7 @@ pub mod driver;
 pub mod error;
 pub mod flags;
 pub mod passes;
+pub mod target;
 pub mod tu;
 
 pub mod front;
