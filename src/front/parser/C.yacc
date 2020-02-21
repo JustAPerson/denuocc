@@ -442,8 +442,10 @@ direct_declarator_recursive_tq
 
 
 pointer
-  : "*" type_qualifier_list_opt pointer_prime
+  : "*" pointer_type_qualifier_list_opt pointer_prime
   ;
+
+pointer_type_qualifier_list_opt: type_qualifier_list_opt;
 
 pointer_prime
   :

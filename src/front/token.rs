@@ -5,6 +5,8 @@
 
 pub mod char_token;
 pub mod preprocessor_token;
+pub mod syn_token;
 
 pub use self::char_token::CharToken;
 pub use self::preprocessor_token::{PPToken, PPTokenKind};
+pub use self::syn_token::{SynToken, SynTokenKind};

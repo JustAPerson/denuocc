@@ -101,6 +101,9 @@ pub enum MessageKind {
         previous: Encoding,
         current: Encoding,
     },
+    Phase7UnrecognizedCharacter {
+        character: char,
+    },
 }
 
 #[derive(Clone, Debug)]
@@ -206,6 +209,11 @@ impl std::fmt::Display for Message {
                 "incompatible encoding when concatenating; previously `{}` but found `{}`",
                 previous.to_str(),
                 current.to_str()
+            ),
+            Phase7UnrecognizedCharacter { character } => write!(
+                f,
+                "unrecognized character `{}` (U+{:04X}); skipping",
+                character, *character as usize
             ),
         }
     }
