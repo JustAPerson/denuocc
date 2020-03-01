@@ -22,7 +22,7 @@ static TOKEN_PATTERNS: &[(&'static str, PPTokenKind)] = &[
     (r"^((//.+)|(?s:/\*.*?\*/))", PPTokenKind::Whitespace),
     (r"^([[:alpha:]_][[:word:]]*)", PPTokenKind::Identifier), // TODO unicode
     (
-        r"^\.?[0-9](([eEpP][\+\-])|[[:word:]])*\.?",
+        r"^\.?[0-9](([eEpP][\+\-])|[[:word:]]|\.)*",
         PPTokenKind::PPNumber,
     ),
     (
@@ -283,6 +283,7 @@ mod test {
         }
 
         case("0123456789");
+        case("01234.56789");
         case(".0123456789.");
         case(".01234abc_def56789.");
         case("0e-");
