@@ -8,3 +8,6 @@ normalize_comments = true
 error_on_line_overflow = true
 error_on_unformatted = true
 format_strings = true
+
+license_template_path = ".rustfmt.license"
+match_block_trailing_comma = true

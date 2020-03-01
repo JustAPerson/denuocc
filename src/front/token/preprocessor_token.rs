@@ -107,19 +107,19 @@ impl PPToken {
                         "assertion failed: `(left == right)`\n  left[{}] = {:?}\n right[{}] = {:?}",
                         i1, a, i2, b
                     );
-                }
+                },
                 (Some((i1, a)), None) => {
                     panic!(
                         "assertion failed: `(left == right)`\n  left[{}] = {:?}\n right terminated",
                         i1, a
                     );
-                }
+                },
                 (None, Some((i2, b))) => {
                     panic!(
                         "assertion failed: `(left == right)`\n  left terminated\n right[{}] = {:?}",
                         i2, b
                     );
-                }
+                },
             }
         }
     }

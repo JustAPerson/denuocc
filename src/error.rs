@@ -42,10 +42,10 @@ impl std::fmt::Display for ErrorKind {
             ClapError(e) => write!(f, "Cannot parse arguments: {}", e),
             InputFileError { filename, error } => {
                 write!(f, "Cannot read file `{}`: {}", filename, error)
-            }
+            },
             OutputFileError { filename, error } => {
                 write!(f, "Cannot write file `{}`: {}", filename, error)
-            }
+            },
 
             TUStateAbsent => write!(f, "No input state for pass"),
             TUStateTypeError {

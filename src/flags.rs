@@ -112,7 +112,7 @@ mod test {
             .parse_args_from_str(&["--pass=nonexistent"])
             .unwrap_err();
         match *error {
-            ErrorKind::ClapError(..) => { /* good */ }
+            ErrorKind::ClapError(..) => { /* good */ },
             _ => panic!(), // bad
         }
 

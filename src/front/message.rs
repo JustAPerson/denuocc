@@ -121,18 +121,18 @@ impl std::fmt::Display for Message {
         match &self.kind {
             ExpectedFound { expected, found } => {
                 write!(f, "expected {}; found {}", expected, found)
-            }
+            },
             Phase1FileEndingWithBackslash => write!(f, "file cannot end with a backslash"),
             Phase3MissingTerminator { terminator } => {
                 write!(f, "missing closing {} terminator", terminator)
-            }
+            },
             Phase4UnexpectedDirective { directive } => {
                 write!(f, "unexpected directive `{}`", &directive)
-            }
+            },
             Phase4InvalidDirective { directive } => write!(f, "invalid directive `{}`", &directive),
             Phase4DefineOperator => {
                 write!(f, "expected identifier or left-paren after define operator")
-            }
+            },
             Phase4MacroArity {
                 name,
                 expected,
@@ -166,10 +166,10 @@ impl std::fmt::Display for Message {
             ),
             Phase4RepeatedMacroParameter { parameter } => {
                 write!(f, "macro parameter `{}` repeated", parameter)
-            }
+            },
             Phase4IllegalSingleHash => {
                 write!(f, "the `#` operator must be followed by a macro parameter")
-            }
+            },
             Phase4IllegalDoubleHash => write!(f, "a macro cannot begin nor end with `##`"),
             Phase4BadConcatenation { lhs, rhs } => write!(
                 f,
@@ -199,7 +199,7 @@ impl std::fmt::Display for Message {
             ),
             Phase5Invalid { prefix, value } => {
                 write!(f, "`\\{}{}` cannot be represented", prefix, value)
-            }
+            },
             Phase5Unrecognized { escape } => write!(f, "`\\{}` is not a valid escape", escape),
             Phase6IncompatibleEncoding { previous, current } => write!(
                 f,

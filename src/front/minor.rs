@@ -144,7 +144,7 @@ impl Encoding {
             (Encoding::Default, new) => {
                 *self = new;
                 true
-            }
+            },
             (_, Encoding::Default) => true,
             (old, new) => old == new,
         }
@@ -398,11 +398,11 @@ fn translate_escapes(
                         location.clone(),
                         MessageKind::Phase5Unrecognized { escape: c },
                     );
-                }
+                },
                 None => {
                     // TODO FIXME error reporting within escape sequences
                     tuctx.emit_message(location.clone(), MessageKind::Phase5Empty);
-                }
+                },
             }
         }
     }

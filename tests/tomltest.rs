@@ -52,7 +52,7 @@ impl std::convert::From<crate::ShouldPanic> for test::ShouldPanic {
                 let s = s.into_boxed_str();
                 let s = Box::leak::<'static>(s);
                 test::ShouldPanic::YesWithMessage(s)
-            }
+            },
         }
     }
 }
@@ -141,12 +141,12 @@ impl Case {
                 let input = input.as_chartokens().unwrap();
                 let output = output.as_chartokens().unwrap();
                 CharToken::assert_equal(input, output);
-            }
+            },
             AssertPptokensLooseEqual => {
                 let input = input.as_pptokens().unwrap();
                 let output = output.as_pptokens().unwrap();
                 PPToken::assert_loose_equal(input, output);
-            }
+            },
         }
     }
 
@@ -161,7 +161,7 @@ impl Case {
         match suite.results_print.unwrap() {
             ChartokensToString => {
                 println!("{}", CharToken::to_string(result.as_chartokens().unwrap()))
-            }
+            },
             PptokensToString => println!("{}", PPToken::to_string(result.as_pptokens().unwrap())),
         }
     }

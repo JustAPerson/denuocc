@@ -123,7 +123,7 @@ impl MacroDef {
                 orig_params == other_params
                     && orig_vararg == other_vararg
                     && compare_tokens(orig_rep, other_rep)
-            }
+            },
             _ => false,
         }
     }
@@ -234,7 +234,7 @@ fn collect_lines_until_ify_directive(line_iter: &mut IntoIter<Line>) -> Vec<Line
             (_, Some("if")) => depth += 1,
             (_, Some("endif")) => depth -= 1,
 
-            (_, _) => {}
+            (_, _) => {},
         }
 
         output.push(line_iter.next().unwrap())
@@ -371,11 +371,11 @@ fn parse_directive_define(tuctx: &mut TUCtx, tokens: Vec<PPToken>) -> Option<Dir
                             },
                         );
                     }
-                }
+                },
                 (State::LParen, _, "...") | (State::Comma, _, "...") => {
                     state = State::Vararg;
                     vararg = true;
-                }
+                },
                 (State::LParen, ..) | (State::Comma, ..) => {
                     tuctx.emit_message(
                         token.location,
@@ -386,11 +386,11 @@ fn parse_directive_define(tuctx: &mut TUCtx, tokens: Vec<PPToken>) -> Option<Dir
                     );
 
                     return None;
-                }
+                },
 
                 (State::Ident, _, ",") => {
                     state = State::Comma;
-                }
+                },
                 (State::Ident, ..) => {
                     tuctx.emit_message(
                         token.location,
@@ -401,7 +401,7 @@ fn parse_directive_define(tuctx: &mut TUCtx, tokens: Vec<PPToken>) -> Option<Dir
                     );
 
                     return None;
-                }
+                },
 
                 // closing paren handled by first pattern in match
                 // so we've encountered something after `...` which
@@ -416,7 +416,7 @@ fn parse_directive_define(tuctx: &mut TUCtx, tokens: Vec<PPToken>) -> Option<Dir
                     );
 
                     return None;
-                }
+                },
             }
         }
 
@@ -562,7 +562,7 @@ fn parse_directive_if_generic(
 
                 let condition = IfCondition::Plain(iter.collect());
                 state = State::Elif(condition);
-            }
+            },
 
             // next directive is `else`
             (State::Main, Some("else")) | (State::Elif(..), Some("else")) => {
@@ -582,7 +582,7 @@ fn parse_directive_if_generic(
                 }
 
                 state = State::Else;
-            }
+            },
 
             // `else` directive should be followed by an `endif` directive. That
             // case is handled above, so if we reach this case, the next
@@ -597,7 +597,7 @@ fn parse_directive_if_generic(
                     },
                 );
                 return;
-            }
+            },
 
             _ => unreachable!(),
         }
@@ -752,12 +752,12 @@ fn parse_directives(tuctx: &mut TUCtx, lines: Vec<Line>) -> Vec<Directive> {
                 if let Some(directive) = parse_directive_define(tuctx, line) {
                     directives.push(directive)
                 }
-            }
+            },
             Some("undef") => {
                 if let Some(directive) = parse_directive_undefine(tuctx, line) {
                     directives.push(directive)
                 }
-            }
+            },
             Some("if") => parse_directive_if(tuctx, line, &mut line_iter, &mut directives),
             Some("ifdef") => parse_directive_ifdef(tuctx, line, &mut line_iter, &mut directives),
             Some("ifndef") => parse_directive_ifndef(tuctx, line, &mut line_iter, &mut directives),
@@ -770,7 +770,7 @@ fn parse_directives(tuctx: &mut TUCtx, lines: Vec<Line>) -> Vec<Directive> {
                         directive: directive.to_owned(),
                     },
                 );
-            }
+            },
 
             // No directive means it's text
             None => {
@@ -778,7 +778,7 @@ fn parse_directives(tuctx: &mut TUCtx, lines: Vec<Line>) -> Vec<Directive> {
                 collect_lines_until_directive(&mut line_iter, &mut text);
 
                 directives.push(Directive::Text(text))
-            }
+            },
         }
     }
 
@@ -824,11 +824,11 @@ fn stage_one(tuctx: &mut TUCtx, lines: Vec<Line>) -> Vec<Directive> {
 
             Directive::Define(macrodef) => {
                 defines.insert(macrodef.name().to_owned(), macrodef.clone());
-            }
+            },
             Directive::Undefine(name) => {
                 defines.remove(&name.value);
-            }
-            Directive::Text(..) => {}
+            },
+            Directive::Text(..) => {},
         }
 
         output_directives.push(directive);
@@ -858,11 +858,11 @@ fn escape(output: &mut String, token: &PPToken) {
             '\\' => {
                 output.push('\\');
                 output.push('\\');
-            }
+            },
             '"' => {
                 output.push('\\');
                 output.push('"');
-            }
+            },
             c => output.push(c),
         }
     }
@@ -886,7 +886,7 @@ fn stringize(input: &[PPToken], location: Location) -> PPToken {
                 if output.chars().next_back() != Some(' ') {
                     output.push(' ');
                 }
-            }
+            },
             StringLiteral | CharacterConstant => escape(&mut output, &token),
             _ => output.push_str(&token.value),
         }
@@ -1050,7 +1050,7 @@ impl<'tu, 'drv, 'def> Expander<'tu, 'drv, 'def> {
                     debug_assert!(!tokens.is_empty());
                     self.line = Some(tokens.into_iter());
                     return self.next_token();
-                }
+                },
                 Directive::IfSection { .. } => unreachable!(),
             }
         }
@@ -1362,7 +1362,7 @@ impl<'tu, 'drv, 'def> Expander<'tu, 'drv, 'def> {
 
                 disable_macro_recursion(&mut replaced, &token);
                 self.rescan(replaced);
-            }
+            },
             Some(MacroDef::Function(_)) => {
                 // This nonsense with the Rc is a hack to work around borrow
                 // checker. In particular, because we want to mutably borrow
@@ -1426,7 +1426,7 @@ impl<'tu, 'drv, 'def> Expander<'tu, 'drv, 'def> {
                     self.output.push(token);
                     self.output.append(&mut whitespace);
                 }
-            }
+            },
             _ => self.output.push(token),
         }
     }
@@ -1438,10 +1438,10 @@ impl<'tu, 'drv, 'def> Expander<'tu, 'drv, 'def> {
             match token.kind {
                 PPTokenKind::Identifier => {
                     self.expand_ident(token);
-                }
+                },
                 _ => {
                     self.output.push(token);
-                }
+                },
             }
         }
         self.output
