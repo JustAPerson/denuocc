@@ -48,3 +48,40 @@ impl Location {
         )
     }
 }
+
+#[derive(Clone, Debug)]
+pub struct Span {
+    pub begin: Location,
+    pub end: Location,
+}
+
+impl Span {
+    pub fn new(begin: Location, end: Location) -> Span {
+        Span { begin, end }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct Spanned<T> {
+    pub span: Span,
+    pub value: T,
+}
+
+impl<T> Spanned<T> {
+    pub fn map<U, F>(self, f: F) -> Spanned<U>
+    where
+        F: FnOnce(T) -> U,
+    {
+        Spanned {
+            span: self.span,
+            value: f(self.value),
+        }
+    }
+
+    pub fn into<U: From<T>>(self) -> Spanned<U> {
+        Spanned {
+            span: self.span,
+            value: self.value.into(),
+        }
+    }
+}
