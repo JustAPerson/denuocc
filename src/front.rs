@@ -5,6 +5,7 @@
 
 //! Compiler front-end; everything about C syntax
 
+pub mod input;
 pub mod lexer;
 pub mod location;
 pub mod message;

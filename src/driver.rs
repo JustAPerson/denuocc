@@ -10,17 +10,10 @@ use std::rc::Rc;
 
 use crate::error::{ErrorKind, Result};
 use crate::flags::Flags;
+use crate::front::input::Input;
 use crate::front::message::Message;
 use crate::passes::PASS_FUNCTIONS;
 use crate::tu::TUCtx;
-
-/// A translation unit input
-#[derive(Clone, Debug)]
-pub struct Input {
-    pub name: String,
-    pub content: String,
-    pub is_file: bool,
-}
 
 /// Main interface for invoking denuocc
 #[derive(Clone, Debug)]
@@ -72,11 +65,12 @@ impl Driver {
     /// units
     pub fn add_input_file(&mut self, path: impl AsRef<std::path::Path>) -> Result<()> {
         let stdin_path: &std::path::Path = "-".as_ref();
+        let path = path.as_ref();
 
         let name;
         let input;
 
-        if path.as_ref() == stdin_path {
+        if path == stdin_path {
             use std::io::Read;
 
             name = "<stdin>".to_owned();
@@ -88,23 +82,19 @@ impl Driver {
                     filename: name.clone(),
                     error: e,
                 })?;
-            input = Input {
-                name: name.clone(),
-                content: content,
-                is_file: false,
-            };
+            input = Input::new(name.clone(), content, None);
         } else {
-            name = path.as_ref().to_string_lossy().into_owned();
+            name = path.to_string_lossy().into_owned();
             let content =
-                std::fs::read_to_string(&name).map_err(|e| ErrorKind::InputFileError {
+                std::fs::read_to_string(path).map_err(|e| ErrorKind::InputFileError {
                     filename: name.to_owned(),
                     error: e,
                 })?;
-            input = Input {
-                name: name.clone(),
-                content: content,
-                is_file: true,
-            };
+
+            // make sure path we store is rooted
+            let mut pathbuf = std::env::current_dir().unwrap();
+            pathbuf.push(path);
+            input = Input::new(name.clone(), content, Some(pathbuf));
         }
 
         self.inputs.insert(name, Rc::new(input));
@@ -123,11 +113,7 @@ impl Driver {
         );
         self.inputs.insert(
             name.to_owned(),
-            Rc::new(Input {
-                name: name.to_owned(),
-                content: content.to_owned(),
-                is_file: false,
-            }),
+            Rc::new(Input::new(name.to_owned(), content.to_owned(), None)),
         );
     }
 

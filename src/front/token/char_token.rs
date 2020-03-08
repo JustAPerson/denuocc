@@ -7,8 +7,8 @@
 
 use std::rc::Rc;
 
-use crate::driver::Input;
 use crate::front::location::{DirectLocation, Position};
+use crate::front::input::Input;
 
 /// A very simple token used in phases 1-3
 #[derive(Clone, Debug)]
@@ -119,11 +119,11 @@ mod test {
 
     #[test]
     fn test_chartokens_from_str() {
-        let input = Rc::new(Input {
-            name: "<unit-test>".to_owned(),
-            content: "abc\nd\ne".to_owned(),
-            is_file: false,
-        });
+        let input = Rc::new(Input::new(
+            "<unit-test>".to_owned(),
+            "abc\nd\ne".to_owned(),
+            None,
+        ));
         let tokens = CharToken::from_input(&input);
 
         assert_eq!(tokens[0].value, 'a');

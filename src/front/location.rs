@@ -7,7 +7,7 @@
 
 use std::rc::Rc;
 
-use crate::driver::Input;
+use crate::front::input::Input;
 
 /// A specific point in a file
 #[derive(Copy, Clone, Debug, Default)]
@@ -107,11 +107,11 @@ mod test {
 
     #[test]
     fn test_location_sub() {
-        let input = Rc::new(Input {
-            name: "<unit-test>".to_owned(),
-            content: "abc\nd\ne".to_owned(),
-            is_file: false,
-        });
+        let input = Rc::new(Input::new(
+            "<unit-test>".to_owned(),
+            "abc\nd\ne".to_owned(),
+            None,
+        ));
         let tokens = CharToken::from_input(&input);
         let diff = &tokens[2].loc - tokens[0].loc.clone();
 
@@ -125,11 +125,11 @@ mod test {
     #[test]
     #[should_panic(expected = "assertion failed: end > begin")]
     fn test_location_sub_backwards() {
-        let input = Rc::new(Input {
-            name: "<unit-test>".to_owned(),
-            content: "abc\nd\ne".to_owned(),
-            is_file: false,
-        });
+        let input = Rc::new(Input::new(
+            "<unit-test>".to_owned(),
+            "abc\nd\ne".to_owned(),
+            None,
+        ));
         let tokens = CharToken::from_input(&input);
         let _ = &tokens[0].loc - tokens[2].loc.clone();
     }

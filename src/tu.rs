@@ -8,8 +8,9 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::driver::{Driver, Input};
+use crate::driver::Driver;
 use crate::error::{ErrorKind, Result};
+use crate::front::input::Input;
 use crate::front::location::Location;
 use crate::front::message::{Message, MessageKind};
 use crate::front::token::{CharToken, PPToken};
