@@ -8,10 +8,10 @@
 use std::rc::Rc;
 
 use lazy_static::lazy_static;
-use log::{debug, trace};
+use log::{debug, log_enabled, trace};
 use regex::{Regex, RegexSet};
 
-use crate::front::location::{DirectLocation, Position};
+use crate::front::location::{Location, Position};
 use crate::front::message::MessageKind;
 use crate::front::token::{CharToken, PPToken, PPTokenKind};
 use crate::tu::TUCtx;
@@ -146,10 +146,14 @@ pub fn lex(tuctx: &mut TUCtx, tokens: Vec<CharToken>) -> Vec<PPToken> {
                 i += 1;
             }
         } else {
+            // CharTokens may have length greater than one because of trigraphs
+            let mut location = first.loc.clone();
+            location.len = last.loc.begin.absolute + last.loc.len - first.loc.begin.absolute;
+
             output.push(PPToken {
                 kind,
                 value: slice.to_owned(),
-                location: (&last.loc - first.loc.clone()).into(),
+                location: location,
             })
         }
     }
@@ -157,7 +161,7 @@ pub fn lex(tuctx: &mut TUCtx, tokens: Vec<CharToken>) -> Vec<PPToken> {
     output.push(PPToken {
         kind: PPTokenKind::EndOfFile,
         value: "".to_owned(),
-        location: DirectLocation {
+        location: Location {
             input: Rc::clone(tuctx.input()),
             begin: Position {
                 absolute: 0,
@@ -165,9 +169,15 @@ pub fn lex(tuctx: &mut TUCtx, tokens: Vec<CharToken>) -> Vec<PPToken> {
                 column: 0,
             },
             len: 0,
-        }
-        .into(),
+            macro_use: None,
+        },
     });
+
+    if log_enabled!(log::Level::Trace) {
+        for (i, token) in output.iter().enumerate() {
+            trace!("lex() output[{}] = {:?}", i, token);
+        }
+    }
 
     output
 }

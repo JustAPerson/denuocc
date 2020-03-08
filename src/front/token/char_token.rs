@@ -7,14 +7,14 @@
 
 use std::rc::Rc;
 
-use crate::front::location::{DirectLocation, Position};
 use crate::front::input::Input;
+use crate::front::location::{Location, Position};
 
 /// A very simple token used in phases 1-3
 #[derive(Clone, Debug)]
 pub struct CharToken {
     pub value: char,
-    pub loc: DirectLocation,
+    pub loc: Location,
 }
 
 impl CharToken {
@@ -31,10 +31,11 @@ impl CharToken {
         for c in input.content.chars() {
             output.push(CharToken {
                 value: c,
-                loc: DirectLocation {
+                loc: Location {
                     input: Rc::clone(input),
                     begin: position,
                     len: 1,
+                    macro_use: None,
                 }
                 .into(),
             });

@@ -7,6 +7,8 @@
 
 use std::convert::TryFrom;
 
+use log::{log_enabled, trace};
+
 use crate::front::location::Location;
 use crate::front::message::MessageKind;
 use crate::front::token::{CharToken, PPToken, PPTokenKind};
@@ -39,10 +41,9 @@ pub fn convert_trigraphs<'a>(tokens: Vec<CharToken>) -> Vec<CharToken> {
 
         if first.value == '?' && second.value == '?' {
             if let Some((_, to)) = REPLACEMENTS.iter().find(|(from, _)| *from == third.value) {
-                output.push(CharToken {
-                    value: *to,
-                    loc: &third.loc - first.loc,
-                });
+                let mut loc = first.loc.clone();
+                loc.len = 3;
+                output.push(CharToken { value: *to, loc });
                 iter.next();
                 iter.next();
                 continue;
@@ -55,6 +56,12 @@ pub fn convert_trigraphs<'a>(tokens: Vec<CharToken>) -> Vec<CharToken> {
 
     while let Some(token) = iter.next() {
         output.push(token);
+    }
+
+    if log_enabled!(log::Level::Trace) {
+        for (i, token) in output.iter().enumerate() {
+            trace!("convert_trigraphs() output[{}] = {:?}", i, token);
+        }
     }
 
     output
@@ -74,7 +81,6 @@ pub fn splice_lines(tuctx: &mut TUCtx, input: Vec<CharToken>) -> Vec<CharToken> 
         let second = &iter.as_slice()[0];
 
         if first.value == '\\' && second.value == '\n' {
-            let loc = &second.loc - second.loc.clone();
             iter.next(); // consume second
 
             // do not emit either to output, in effect splicing physical lines
@@ -82,7 +88,10 @@ pub fn splice_lines(tuctx: &mut TUCtx, input: Vec<CharToken>) -> Vec<CharToken> 
 
             // are these the last two characters of input?
             if iter.as_slice().len() == 0 {
-                tuctx.emit_message(loc, MessageKind::Phase1FileEndingWithBackslash);
+                tuctx.emit_message(
+                    first.loc.clone(),
+                    MessageKind::Phase1FileEndingWithBackslash,
+                );
             }
         } else {
             output.push(first);

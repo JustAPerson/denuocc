@@ -11,7 +11,7 @@ use std::vec::IntoIter;
 use log::trace;
 
 use crate::front::lexer::lex_one_token;
-use crate::front::location::{DirectLocation, Location, Position};
+use crate::front::location::Location;
 use crate::front::message::{MessageKind, MessagePart};
 use crate::front::token::{PPToken, PPTokenKind};
 use crate::tu::TUCtx;
@@ -19,14 +19,14 @@ use crate::tu::TUCtx;
 type Line = Vec<PPToken>;
 
 #[derive(Clone, Debug)]
-struct MacroObject {
+pub struct MacroObject {
     name: String,
     replacement: Vec<PPToken>,
     location: Location,
 }
 
 #[derive(Clone, Debug)]
-struct MacroFunction {
+pub struct MacroFunction {
     name: String,
     replacement: Vec<PPToken>,
     params: Vec<String>,
@@ -35,7 +35,7 @@ struct MacroFunction {
 }
 
 #[derive(Clone, Debug)]
-enum MacroDef {
+pub enum MacroDef {
     Object(MacroObject),
     Function(MacroFunction),
 }
@@ -686,16 +686,7 @@ fn parse_lines(mut tokens: Vec<PPToken>) -> Vec<Line> {
     } else {
         // use EOF to get location for newline
         debug_assert_eq!(tokens[0].kind, PPTokenKind::EndOfFile);
-        let input = match &tokens[0].location {
-            Location::Direct(loc) => &loc.input,
-            Location::Indirect(..) => unreachable!(),
-        };
-
-        location = Location::Direct(DirectLocation {
-            input: Rc::clone(input),
-            begin: Position::default(),
-            len: 1,
-        })
+        location = tokens[0].location.clone();
     };
 
     // insert before EOF
@@ -1456,6 +1447,11 @@ fn stage_two(tuctx: &mut TUCtx, directives: Vec<Directive>) -> Vec<PPToken> {
 }
 
 pub fn preprocess(tuctx: &mut TUCtx, tokens: Vec<PPToken>) -> Vec<PPToken> {
+    if log::log_enabled!(log::Level::Trace) {
+        for (i, token) in tokens.iter().enumerate() {
+            trace!("preprocess() tokens[{}] = {:?}", i, token);
+        }
+    }
     let lines = parse_lines(tokens);
 
     // Here we split processing into two stages. This allows a simple
