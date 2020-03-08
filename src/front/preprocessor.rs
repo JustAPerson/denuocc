@@ -302,16 +302,16 @@ fn line_get_identifier_and_newline(
     }
 
     // check that nothing else comes after identifier
-    let newline = token_iter
+    let newline_token = token_iter
         .skip_while(PPToken::is_whitespace_not_newline)
         .next()
         .unwrap();
-    if newline.as_str() != "\n" {
+    if !newline_token.is_newline() {
         tuctx.emit_message(
-            newline.location,
+            newline_token.location,
             MessageKind::ExpectedFound {
                 expected: MessagePart::Plain("newline".to_owned()),
-                found: MessagePart::PPToken(newline.kind),
+                found: MessagePart::PPToken(newline_token.kind),
             },
         );
     }
@@ -497,7 +497,7 @@ fn parse_directive_undefine(tuctx: &mut TUCtx, tokens: Vec<PPToken>) -> Option<D
 
     line_skip_whitespace_until_newline(&mut token_iter);
 
-    if line_peek(&mut token_iter).unwrap().as_str() == "\n" {
+    if line_peek(&mut token_iter).unwrap().is_newline() {
         return Some(Directive::Undefine(name_token));
     } else {
         tuctx.emit_message(
@@ -571,7 +571,7 @@ fn parse_directive_if_generic(
                 line_skip_until_directive_content(&mut iter);
 
                 let should_be_newline = iter.next().unwrap();
-                if should_be_newline.as_str() != "\n" {
+                if !should_be_newline.is_newline() {
                     tuctx.emit_message(
                         should_be_newline.location,
                         MessageKind::ExpectedFound {
@@ -707,7 +707,7 @@ fn parse_lines(mut tokens: Vec<PPToken>) -> Vec<Line> {
     while let Some(token) = token_iter.next() {
         // don't discard newline
         // necessary for correctly serializing back into plaintext
-        let was_newline = token.as_str() == "\n";
+        let was_newline = token.is_newline();
 
         lines.last_mut().unwrap().push(token);
 
@@ -721,7 +721,7 @@ fn parse_lines(mut tokens: Vec<PPToken>) -> Vec<Line> {
     debug_assert!(lines
         .iter()
         .take(lines.len() - 1)
-        .all(|line| line.last().unwrap().as_str() == "\n"));
+        .all(|line| line.last().unwrap().is_newline()));
     // last line is only EOF
     debug_assert_eq!(lines.last().unwrap().len(), 1);
     debug_assert_eq!(lines.last().unwrap()[0].kind, PPTokenKind::EndOfFile);

@@ -48,6 +48,10 @@ impl PPToken {
     pub fn is_whitespace_not_newline(&self) -> bool {
         self.is_whitespace() && self.as_str() != "\n"
     }
+
+    pub fn is_newline(&self) -> bool {
+        self.is_whitespace() && self.as_str() == "\n"
+    }
 }
 
 // Static methods
