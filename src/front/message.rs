@@ -29,7 +29,7 @@ impl std::fmt::Display for MessagePart {
 
         match self {
             Plain(string) => write!(f, "{}", string),
-            PPToken(kind) => write!(f, "`{:?}` token", kind),
+            PPToken(kind) => write!(f, "{} token", kind),
             Directive(directive) => write!(f, "`{}` directive", directive),
         }
     }

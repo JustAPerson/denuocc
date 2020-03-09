@@ -44,7 +44,7 @@ output = ""
 
 [[suites.phase4.cases]]
 input = "#define\n"
-messages = ["<case>:1:7: expected `Identifier` token; found `Whitespace` token"]
+messages = ["<case>:1:7: expected identifier token; found whitespace token"]
 
 [[suites.phase4.cases]]
 input = """
@@ -301,13 +301,13 @@ output = "b a"
 input = """
 #undef 3
 """
-messages = ["<case>:1:7: expected `Identifier` token; found `PPNumber` token"]
+messages = ["<case>:1:7: expected identifier token; found number token"]
 
 [[suites.phase4.cases]]
 input = """
 #undef 
 """
-messages = ["<case>:1:7: expected `Identifier` token; found `Whitespace` token"]
+messages = ["<case>:1:7: expected identifier token; found whitespace token"]
 
 [[suites.phase4.cases]]
 input = """
@@ -672,8 +672,8 @@ input = """
 #endif
 """
 messages = [
-  "<case>:1:7: expected identifier; found `PPNumber` token",
-  "<case>:3:8: expected identifier; found `PPNumber` token"
+  "<case>:1:7: expected identifier; found number token",
+  "<case>:3:8: expected identifier; found number token"
 ]
 
 [[suites.phase4.cases]]

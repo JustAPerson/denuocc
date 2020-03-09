@@ -22,6 +22,22 @@ pub enum PPTokenKind {
     Other,
 }
 
+impl PPTokenKind {
+    fn as_str(&self) -> &'static str {
+        use PPTokenKind::*;
+        match self {
+            EndOfFile => "end-of-file",
+            Whitespace => "whitespace",
+            Identifier | IdentifierNonExpandable => "identifier",
+            PPNumber => "number",
+            CharacterConstant => "character-constant",
+            StringLiteral => "string-literal",
+            Punctuator => "punctuator",
+            Other => "other",
+        }
+    }
+}
+
 /// A more complex token used in phases 3 and 4
 ///
 /// Note: location is not considered in the PartialEq implementation
@@ -126,6 +142,12 @@ impl PPToken {
                 },
             }
         }
+    }
+}
+
+impl std::fmt::Display for PPTokenKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
     }
 }
 
