@@ -8,10 +8,11 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::vec::IntoIter;
 
-use log::trace;
+use log::{debug, log_enabled, trace};
 
+use crate::front::input::IncludedFrom;
 use crate::front::lexer::lex_one_token;
-use crate::front::location::Location;
+use crate::front::location::{Location, Span};
 use crate::front::message::{MessageKind, MessagePart};
 use crate::front::token::{PPToken, PPTokenKind};
 use crate::tu::TUCtx;
@@ -138,7 +139,10 @@ enum IfCondition {
 }
 
 impl IfCondition {
-    pub fn evaluate(&self, defines: &HashMap<String, MacroDef>) -> bool {
+    pub fn evaluate(&self, defines: &HashMap<String, Rc<MacroDef>>) -> bool {
+        debug!("IfCondition::evaluate() self = {:?}", self);
+        trace!("IfCondition::evaluate() defines = {:?}", defines);
+
         match self {
             IfCondition::Plain(_line) => unimplemented!(),
             IfCondition::Defined(token) => defines.contains_key(&token.value),
@@ -159,9 +163,13 @@ enum Directive {
         elifs: Vec<(IfCondition, Vec<Line>)>,
         else_body: Option<Vec<Line>>,
     },
-    Define(MacroDef),
+    Define(Rc<MacroDef>),
     Undefine(PPToken),
     Text(Vec<PPToken>),
+    Include {
+        content: Vec<PPToken>,
+        span: Span,
+    },
 }
 
 /// Checks whether this is the last line of the file
@@ -461,19 +469,21 @@ fn parse_directive_define(tuctx: &mut TUCtx, tokens: Vec<PPToken>) -> Option<Dir
             }
         }
 
-        Some(Directive::Define(MacroDef::Function(MacroFunction {
-            name: name_token.value,
-            params,
-            vararg,
-            replacement,
-            location: name_token.location,
-        })))
+        Some(Directive::Define(Rc::new(MacroDef::Function(
+            MacroFunction {
+                name: name_token.value,
+                params,
+                vararg,
+                replacement,
+                location: name_token.location,
+            },
+        ))))
     } else {
-        Some(Directive::Define(MacroDef::Object(MacroObject {
+        Some(Directive::Define(Rc::new(MacroDef::Object(MacroObject {
             name: name_token.value,
             replacement: tokens_trim_whitespace(token_iter.as_slice()).to_vec(),
             location: name_token.location,
-        })))
+        }))))
     }
 }
 
@@ -700,6 +710,12 @@ fn parse_lines(mut tokens: Vec<PPToken>) -> Vec<Line> {
     );
     debug_assert_eq!(tokens.last().unwrap().kind, PPTokenKind::EndOfFile);
 
+    if log_enabled!(log::Level::Trace) {
+        for (i, token) in tokens.iter().enumerate() {
+            trace!("parse_lines() tokens[{}] = {:?}", i, token);
+        }
+    }
+
     let mut token_iter = tokens.into_iter();
     let mut lines: Vec<Vec<PPToken>> = Vec::new();
     lines.push(Vec::new());
@@ -729,6 +745,28 @@ fn parse_lines(mut tokens: Vec<PPToken>) -> Vec<Line> {
     lines
 }
 
+fn parse_include(tuctx: &mut TUCtx, line: Line) -> Option<Directive> {
+    let mut line_iter = line.into_iter();
+
+    // get location of `#`
+    line_skip_whitespace_until_newline(&mut line_iter);
+    let begin = line_iter.as_slice()[0].location.clone();
+    line_skip_until_directive_content(&mut line_iter);
+    line_skip_whitespace_until_newline(&mut line_iter);
+
+    let content = line_iter.collect::<Vec<_>>();
+    if content[0].is_newline() {
+        tuctx.emit_message(content[0].location.clone(), MessageKind::Phase4IncludeBegin);
+        return None;
+    }
+    let end = content[content.len() - 2].location.clone(); // do not include newline in span
+
+    Some(Directive::Include {
+        content,
+        span: Span::new(begin, end),
+    })
+}
+
 /// Collates lines into directives
 fn parse_directives(tuctx: &mut TUCtx, lines: Vec<Line>) -> Vec<Directive> {
     let mut directives = Vec::<Directive>::new();
@@ -747,6 +785,11 @@ fn parse_directives(tuctx: &mut TUCtx, lines: Vec<Line>) -> Vec<Directive> {
             Some("undef") => {
                 if let Some(directive) = parse_directive_undefine(tuctx, line) {
                     directives.push(directive)
+                }
+            },
+            Some("include") => {
+                if let Some(directive) = parse_include(tuctx, line) {
+                    directives.push(directive);
                 }
             },
             Some("if") => parse_directive_if(tuctx, line, &mut line_iter, &mut directives),
@@ -776,53 +819,156 @@ fn parse_directives(tuctx: &mut TUCtx, lines: Vec<Line>) -> Vec<Directive> {
     directives
 }
 
-/// Process if-sections
-fn stage_one(tuctx: &mut TUCtx, lines: Vec<Line>) -> Vec<Directive> {
+/// Used when we #include a file
+fn process_file_inclusion(
+    tuctx: &mut TUCtx,
+    mut tokens: Vec<PPToken>,
+    span: Span,
+    defines: &mut HashMap<String, Rc<MacroDef>>,
+) -> Vec<Line> {
+    use crate::front::lexer::lex;
+    use crate::front::minor::{convert_trigraphs, splice_lines};
+    use crate::front::token::CharToken;
+
+    debug_assert!(!tokens.is_empty()); // should always be a newline
+    debug_assert!(tokens.last().unwrap().is_newline());
+    if tokens[0].kind == PPTokenKind::Identifier {
+        let expander = Expander::from_tokens(tuctx, defines, tokens);
+        tokens = expander.expand();
+        // should still have newline after expansion
+        debug_assert!(!tokens.is_empty());
+        debug_assert!(tokens.last().unwrap().is_newline());
+    }
+
+    let system;
+    let mut file = String::new();
+    let mut iter = tokens.into_iter();
+    let first = iter.next().unwrap();
+    match (first.kind, first.value.as_str()) {
+        (PPTokenKind::Punctuator, "<") => {
+            system = true;
+            while let Some(token) = iter.next() {
+                if token.is_newline() {
+                    tuctx.emit_message(token.location, MessageKind::Phase4IncludeUnclosed);
+                    return Vec::new();
+                } else if token.kind == PPTokenKind::Punctuator && token.value == ">" {
+                    break;
+                }
+                file.push_str(&token.value);
+            }
+        },
+        (PPTokenKind::StringLiteral, _) => {
+            system = false;
+            file = first.value;
+        },
+        (_, _) => {
+            tuctx.emit_message(first.location, MessageKind::Phase4IncludeBegin);
+            return Vec::new();
+        },
+    }
+
+    // verified above that there will be newline at end
+    line_skip_whitespace_until_newline(&mut iter);
+    let newline_token = iter.next().unwrap();
+    if !newline_token.is_newline() {
+        tuctx.emit_message(
+            newline_token.location,
+            MessageKind::Phase4IncludeExtra {
+                kind: newline_token.kind,
+            },
+        );
+        // unlike the other errors, this one is innocuous enough to continue past
+    }
+
+    let input = first.location.input.clone();
+    if input.depth > 32 {
+        tuctx.emit_message(first.location, MessageKind::Phase4IncludeDepth);
+        return Vec::new();
+    }
+
+    let included_input: Option<_> = tuctx.add_include(&file, system, IncludedFrom { input, span });
+    if included_input.is_none() {
+        tuctx.emit_message(
+            first.location,
+            MessageKind::Phase4IncludeNotFound { desired_file: file },
+        );
+        return Vec::new();
+    }
+
+    trace!(
+        "process_file_inclusion() included_input = {:?}",
+        included_input
+    );
+    let tokens = CharToken::from_input(included_input.unwrap());
+    let phase1 = convert_trigraphs(tokens);
+    let phase2 = splice_lines(tuctx, phase1);
+    let phase3 = lex(tuctx, phase2);
+    let lines = parse_lines(phase3);
+    lines
+}
+
+fn process_include_directives(
+    tuctx: &mut TUCtx,
+    lines: Vec<Line>,
+    defines: &mut HashMap<String, Rc<MacroDef>>,
+) -> Vec<Directive> {
     let input_directives = parse_directives(tuctx, lines);
 
     let mut output_directives = Vec::new();
-    let mut defines = HashMap::new();
 
     'outer: for directive in input_directives {
-        // split this from the following match so that we can consume the
-        // directive without cloning its contents.
-        if let Directive::IfSection {
-            condition,
-            main_body,
-            elifs,
-            else_body,
-        } = &directive
-        {
-            if condition.evaluate(&mut defines) {
-                output_directives.append(&mut stage_one(tuctx, main_body.clone()));
-                continue 'outer;
-            }
-            for (condition, body) in elifs {
-                if condition.evaluate(&mut defines) {
-                    output_directives.append(&mut stage_one(tuctx, body.clone()));
+        match directive {
+            Directive::IfSection {
+                condition,
+                main_body,
+                elifs,
+                else_body,
+            } => {
+                if condition.evaluate(defines) {
+                    output_directives.append(&mut process_include_directives(
+                        tuctx,
+                        main_body.clone(),
+                        defines,
+                    ));
                     continue 'outer;
                 }
-            }
-            if let Some(else_body) = else_body.clone() {
-                output_directives.append(&mut stage_one(tuctx, else_body));
-            }
-            continue 'outer;
-        }
+                for (condition, body) in elifs {
+                    if condition.evaluate(defines) {
+                        output_directives.append(&mut process_include_directives(
+                            tuctx,
+                            body.clone(),
+                            defines,
+                        ));
+                        continue 'outer;
+                    }
+                }
+                if let Some(else_body) = else_body.clone() {
+                    output_directives
+                        .append(&mut process_include_directives(tuctx, else_body, defines));
+                }
+            },
 
-        match &directive {
-            // IfSection is handled above to avoid cloning
-            Directive::IfSection { .. } => unreachable!(),
-
+            // Define/Undefine directives will also be handled in the Expander
             Directive::Define(macrodef) => {
                 defines.insert(macrodef.name().to_owned(), macrodef.clone());
+                output_directives.push(Directive::Define(macrodef));
             },
             Directive::Undefine(name) => {
                 defines.remove(&name.value);
+                output_directives.push(Directive::Undefine(name));
             },
-            Directive::Text(..) => {},
+            directive @ Directive::Text(..) => {
+                output_directives.push(directive);
+            },
+            Directive::Include { content, span } => {
+                let included_directives = process_file_inclusion(tuctx, content, span, defines);
+                output_directives.append(&mut process_include_directives(
+                    tuctx,
+                    included_directives,
+                    defines,
+                ))
+            },
         }
-
-        output_directives.push(directive);
     }
 
     output_directives
@@ -999,7 +1145,7 @@ impl<'tu, 'drv, 'def> Expander<'tu, 'drv, 'def> {
     }
 
     /// Add a new macro definition
-    fn add_define(&mut self, macrodef: MacroDef) {
+    fn add_define(&mut self, macrodef: Rc<MacroDef>) {
         let name = macrodef.name().to_owned();
 
         if let Some(original) = self.defines.get(&name) {
@@ -1013,7 +1159,7 @@ impl<'tu, 'drv, 'def> Expander<'tu, 'drv, 'def> {
                 )
             }
         } else {
-            self.defines.insert(name, Rc::new(macrodef));
+            self.defines.insert(name, macrodef);
         }
     }
 
@@ -1042,7 +1188,7 @@ impl<'tu, 'drv, 'def> Expander<'tu, 'drv, 'def> {
                     self.line = Some(tokens.into_iter());
                     return self.next_token();
                 },
-                Directive::IfSection { .. } => unreachable!(),
+                Directive::IfSection { .. } | Directive::Include { .. } => unreachable!(),
             }
         }
         None
@@ -1439,25 +1585,17 @@ impl<'tu, 'drv, 'def> Expander<'tu, 'drv, 'def> {
     }
 }
 
-fn stage_two(tuctx: &mut TUCtx, directives: Vec<Directive>) -> Vec<PPToken> {
-    let mut defines = HashMap::new();
-    let expander = Expander::from_directives(tuctx, &mut defines, directives);
-
-    expander.expand()
-}
-
 pub fn preprocess(tuctx: &mut TUCtx, tokens: Vec<PPToken>) -> Vec<PPToken> {
-    if log::log_enabled!(log::Level::Trace) {
-        for (i, token) in tokens.iter().enumerate() {
-            trace!("preprocess() tokens[{}] = {:?}", i, token);
-        }
-    }
     let lines = parse_lines(tokens);
 
     // Here we split processing into two stages. This allows a simple
-    // implementation accommodating one of the more unintuitive uses of macros.
-    // The primary motivation is handling mutli-line function macros that may
-    // cross if-sections.
+    // implementation accommodating some of the more unintuitive uses of macros.
+    // The original goal was to accommodate multi-line function macro
+    // invocations that span an if-section (although this is undefined
+    // behavior). This choice also permits us to handle macro invocations that
+    // span file inclusion boundaries (which is defined to work, though the
+    // committee has considered undefining this).
+    //
     // Consider this code:
     // ```
     // #define test(a) a
@@ -1468,8 +1606,14 @@ pub fn preprocess(tuctx: &mut TUCtx, tokens: Vec<PPToken>) -> Vec<PPToken> {
     // ```
     // Should expand to "hello"
     //
-    // Thus, the first stage expands if sections, while the second stage expands
-    // macros
-    let directives = stage_one(tuctx, lines);
-    stage_two(tuctx, directives)
+    // The first stage will process and remove all file/conditional inclusion
+    // directives as well as evaluate macro definitions and undefinitions, so we
+    // wish to ignore the resulting map of definitions. They will only be used
+    // when evaluating macros in #if-like or #include directives
+    let directives = process_include_directives(tuctx, lines, &mut HashMap::new());
+
+    // Now that we have the the entire text of input, we will expand macros
+    let mut defines = HashMap::new();
+    let expander = Expander::from_directives(tuctx, &mut defines, directives);
+    expander.expand()
 }

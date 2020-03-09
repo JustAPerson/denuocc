@@ -10,7 +10,7 @@ use std::rc::Rc;
 
 use crate::driver::Driver;
 use crate::error::{ErrorKind, Result};
-use crate::front::input::Input;
+use crate::front::input::{IncludedFrom, Input};
 use crate::front::location::Location;
 use crate::front::message::{Message, MessageKind};
 use crate::front::token::{CharToken, PPToken};
@@ -81,6 +81,7 @@ impl std::fmt::Display for TUState {
 pub struct TUCtx<'a> {
     driver: &'a Driver,
     input: Rc<Input>,
+    included_inputs: Vec<Rc<Input>>,
     messages: Vec<Message>,
     state: Option<TUState>,
     saved_states: HashMap<String, Vec<TUState>>,
@@ -96,6 +97,7 @@ impl<'a> TUCtx<'a> {
                     .get(name)
                     .unwrap_or_else(|| panic!("input name not found; got `{}`", name)),
             ),
+            included_inputs: Vec::new(),
             messages: Vec::new(),
             state: None,
             saved_states: HashMap::new(),
@@ -169,4 +171,68 @@ impl<'a> TUCtx<'a> {
             kind: kind,
         });
     }
+
+    /// Search for a file and include it in this translation unit's context
+    pub fn add_include(
+        &mut self,
+        desired_file: &str,
+        system: bool,
+        included_from: IncludedFrom,
+    ) -> Option<&Rc<Input>> {
+        let including_file = included_from
+            .input
+            .path
+            .as_ref()
+            .map(|p| p.as_path())
+            .clone();
+        let input = search_for_include(self, desired_file, including_file, system);
+
+        if let Some(mut input) = input {
+            input.depth = included_from.input.depth + 1;
+            input.included_from = Some(included_from);
+            self.included_inputs.push(Rc::new(input));
+            self.included_inputs.last() // always Some
+        } else {
+            None
+        }
+    }
+}
+
+use std::path::{Path, PathBuf};
+fn search_for_include_system(tuctx: &TUCtx, desired_file: &str) -> Option<Input> {
+    if let Some(content) = tuctx.driver.extra_files.get(desired_file) {
+        return Some(Input::new(desired_file.to_owned(), content.clone(), None));
+    }
+
+    unimplemented!("searching system paths for #include"); // TODO NYI System #include paths
+}
+
+fn search_for_include_quote(desired_file: &str, including_file: Option<&Path>) -> Option<Input> {
+    let mut path = including_file
+        .map(PathBuf::from)
+        .unwrap_or(std::env::current_dir().unwrap());
+    path.push(&desired_file);
+
+    let content = std::fs::read_to_string(&path);
+    if let Ok(content) = content {
+        Some(Input::new(desired_file.to_owned(), content, Some(path)))
+    } else {
+        None
+    }
+}
+
+fn search_for_include(
+    tuctx: &TUCtx,
+    desired_file: &str,
+    including_file: Option<&Path>,
+    system: bool,
+) -> Option<Input> {
+    let mut input = None;
+    if !system {
+        input = search_for_include_quote(desired_file, including_file);
+    }
+    if input.is_none() || system {
+        input = search_for_include_system(tuctx, desired_file);
+    }
+    input
 }

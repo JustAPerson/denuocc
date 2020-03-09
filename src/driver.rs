@@ -20,6 +20,10 @@ use crate::tu::TUCtx;
 pub struct Driver {
     /// A map from input names to their contents
     pub inputs: HashMap<String, Rc<Input>>,
+
+    /// Pseudo-files that can be `#included`, searched before system paths
+    pub extra_files: HashMap<String, String>,
+
     pub flags: Flags,
 
     pub messages: HashMap<String, Vec<Message>>,
@@ -85,11 +89,10 @@ impl Driver {
             input = Input::new(name.clone(), content, None);
         } else {
             name = path.to_string_lossy().into_owned();
-            let content =
-                std::fs::read_to_string(path).map_err(|e| ErrorKind::InputFileError {
-                    filename: name.to_owned(),
-                    error: e,
-                })?;
+            let content = std::fs::read_to_string(path).map_err(|e| ErrorKind::InputFileError {
+                filename: name.to_owned(),
+                error: e,
+            })?;
 
             // make sure path we store is rooted
             let mut pathbuf = std::env::current_dir().unwrap();
@@ -164,9 +167,9 @@ impl std::default::Default for Driver {
     fn default() -> Self {
         Driver {
             flags: Flags::new(),
-
             inputs: HashMap::new(),
             messages: HashMap::new(),
+            extra_files: HashMap::new(),
         }
     }
 }

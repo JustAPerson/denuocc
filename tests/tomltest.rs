@@ -75,6 +75,7 @@ struct Case {
     messages: Option<Vec<String>>,
     ignored: Option<bool>,
     should_panic: Option<ShouldPanic>,
+    extra_files: Option<HashMap<String, String>>,
 
     #[serde(skip)]
     line: usize,
@@ -88,6 +89,10 @@ impl Case {
         for pass in &suite.passes {
             let arg = format!("--pass={}", pass);
             driver.parse_args_from_str(&[arg]).unwrap();
+        }
+
+        if let Some(extra_files) = &self.extra_files {
+            driver.extra_files = extra_files.clone();
         }
 
         let mut tu = driver.run_one("<case>").unwrap();

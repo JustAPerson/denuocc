@@ -593,6 +593,94 @@ output = """
 """
 
 ################################################################################
+# Test file inclusion
+################################################################################
+
+[[suites.phase4.cases]]
+input = "#include"
+messages = [
+  '<case>:1:8: expected `<FILENAME>`, `"FILENAME"`, or a macro that expands to either of those'
+]
+
+[[suites.phase4.cases]]
+input = "#include 3"
+messages = [
+  '<case>:1:9: expected `<FILENAME>`, `"FILENAME"`, or a macro that expands to either of those'
+]
+
+[[suites.phase4.cases]]
+input = """
+#define macro 3
+#include macro
+"""
+messages = [
+  '<case>:2:9: expected `<FILENAME>`, `"FILENAME"`, or a macro that expands to either of those'
+]
+
+[[suites.phase4.cases]]
+extra_files.a = "A"
+extra_files.b = "B"
+input = """
+#include <a>
+#include <b>
+#include <a>
+"""
+output = "A B A"
+
+[[suites.phase4.cases]]
+extra_files.definitions = "#define foo bar"
+input = """
+#include <definitions>
+foo
+"""
+output = "bar"
+
+# This one may be undefined behavior in future, see WG14 N2324
+[[suites.phase4.cases]]
+extra_files.macro = """
+hmm (
+interesting
+"""
+input = """
+#define hmm(a) #a
+#include <macro>
+)
+"""
+output = '"interesting"'
+messages = []
+
+[[suites.phase4.cases]]
+extra_files.a = "#include <b>"
+extra_files.b = "#include <c>"
+extra_files.c = "#include <a>"
+input = "#include <a>"
+messages = [
+]
+
+[[suites.phase4.cases]]
+input = '#include "a"'
+messages = [
+  "<case>:1:9: could not include `a`: file not found",
+]
+should_panic = true # TODO NYI System #include paths
+
+[[suites.phase4.cases]]
+input = '#include <a>'
+messages = [
+  "<case>:1:9: could not include `a`: file not found",
+]
+should_panic = true # TODO NYI System #include paths
+
+################################################################################
+# Error trails
+################################################################################
+
+[[suites.phase4.cases]]
+extra_files.invalid = "#define 3"
+input = "#include <invalid>"
+messages = []
+
+################################################################################
 # If directives
 ################################################################################
 

@@ -79,6 +79,15 @@ pub enum MessageKind {
         lhs: String,
         rhs: String,
     },
+    Phase4IncludeBegin,
+    Phase4IncludeUnclosed,
+    Phase4IncludeExtra {
+        kind: PPTokenKind,
+    },
+    Phase4IncludeDepth,
+    Phase4IncludeNotFound {
+        desired_file: String,
+    },
     Phase5Empty,
     Phase5OutOfRange {
         prefix: &'static str,
@@ -176,6 +185,21 @@ impl std::fmt::Display for Message {
                 "concatenating `{}` and `{}` does not result in a valid preprocessor token",
                 lhs, rhs
             ),
+            Phase4IncludeBegin => write!(
+                f,
+                r#"expected `<FILENAME>`, `"FILENAME"`, or a macro that expands to either of those"#
+            ),
+            Phase4IncludeUnclosed => write!(
+                f,
+                "expected `>` to close corresponding `<` after `#include`",
+            ),
+            Phase4IncludeExtra { kind } => {
+                write!(f, "expected newline after <FILENAME>; found {}", kind)
+            },
+            Phase4IncludeDepth => write!(f, "maximum nested include depth exceeded"),
+            Phase4IncludeNotFound { desired_file } => {
+                write!(f, "could not include `{}`: file not found", desired_file)
+            },
             Phase5Empty => write!(f, "expected character after escape sequence"),
             Phase5Incomplete {
                 expected,
