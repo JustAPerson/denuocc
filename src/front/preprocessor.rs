@@ -12,7 +12,7 @@ use log::{debug, log_enabled, trace};
 
 use crate::front::input::IncludedFrom;
 use crate::front::lexer::lex_one_token;
-use crate::front::location::{Location, Span};
+use crate::front::location::{Location, MacroUse, Span};
 use crate::front::message::{MessageKind, MessagePart};
 use crate::front::token::{PPToken, PPTokenKind};
 use crate::tu::TUCtx;
@@ -1033,6 +1033,13 @@ fn stringize(input: &[PPToken], location: Location) -> PPToken {
     }
 }
 
+fn use_locations_in_macro(tokens: &mut [PPToken], macro_use: MacroUse) {
+    let macro_use = Rc::new(macro_use);
+    for token in tokens {
+        token.location.macro_use = Some(macro_use.clone());
+    }
+}
+
 /// Struct for managing complex expansion logic
 ///
 /// This largely follows the algorithm proposed in X3J11/86-196, an ancient
@@ -1252,6 +1259,10 @@ impl<'tu, 'drv, 'def> Expander<'tu, 'drv, 'def> {
                     // arguments, don't push one
                     arguments.push(current_arg);
                 }
+
+                // we want caller to handle closing paren so it can find an
+                // accurate span of the entire macro invocation
+                self.rescan.push(token);
                 break;
             } else if token.kind == PPTokenKind::EndOfFile {
                 self.tuctx.emit_message(
@@ -1486,9 +1497,22 @@ impl<'tu, 'drv, 'def> Expander<'tu, 'drv, 'def> {
             Some(MacroDef::Object(obj)) => {
                 trace!("Expander::expand_ident() {:?}", &obj);
 
-                let replacement = obj.replacement.clone().into_iter();
-                let mut replaced =
-                    self.replace(/* function-like? */ false, replacement, HashMap::new());
+                // copy replacement list and modify locations to show these
+                // tokens were used in a macro
+                let mut replacement = obj.replacement.clone();
+                use_locations_in_macro(
+                    &mut replacement,
+                    MacroUse {
+                        definition: macrodef.unwrap().clone(),
+                        span: Span::new(token.location.clone(), token.location.clone()),
+                    },
+                );
+
+                let mut replaced = self.replace(
+                    false, // function-like?
+                    replacement.into_iter(),
+                    HashMap::new(),
+                );
 
                 disable_macro_recursion(&mut replaced, &token);
                 self.rescan(replaced);
@@ -1531,9 +1555,42 @@ impl<'tu, 'drv, 'def> Expander<'tu, 'drv, 'def> {
                 if let Some(next) = next {
                     // next is guaranteed to be non-whitespace
                     if next.as_str() == "(" {
-                        let arguments = self.parse_arguments(func, &next.location);
-                        let replacement = func.replacement.clone().into_iter();
-                        let mut replaced = self.replace(true, replacement, arguments);
+                        let mut arguments = self.parse_arguments(func, &next.location);
+                        let closing_paren = self.rescan.pop().unwrap();
+                        debug_assert_eq!(closing_paren.kind, PPTokenKind::Punctuator);
+                        debug_assert_eq!(closing_paren.value, ")");
+
+                        // update the parameters of the macro as coming from the
+                        // correct argument of the invocation
+                        for argument in arguments.values_mut() {
+                            if argument.is_empty() {
+                                continue;
+                            }
+                            let span = Span::new(
+                                argument.first().unwrap().location.clone(),
+                                argument.last().unwrap().location.clone(),
+                            );
+                            use_locations_in_macro(
+                                argument,
+                                MacroUse {
+                                    definition: macrodef.clone(),
+                                    span,
+                                },
+                            );
+                        }
+
+                        // update location of the text of the macro as coming
+                        // from the span of the entire macro invocation
+                        let mut replacement = func.replacement.clone();
+                        use_locations_in_macro(
+                            &mut replacement,
+                            MacroUse {
+                                definition: macrodef.clone(),
+                                span: Span::new(token.location.clone(), closing_paren.location),
+                            },
+                        );
+
+                        let mut replaced = self.replace(true, replacement.into_iter(), arguments);
 
                         disable_macro_recursion(&mut replaced, &token);
                         self.rescan(replaced);

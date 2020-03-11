@@ -23,8 +23,8 @@ pub struct Position {
 
 #[derive(Clone, Debug)]
 pub struct MacroUse {
-    pub macro_definition: Rc<MacroDef>,
-    pub location: Location,
+    pub definition: Rc<MacroDef>,
+    pub span: Span,
 }
 
 /// Where a token came from
