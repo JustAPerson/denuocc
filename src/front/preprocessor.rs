@@ -686,29 +686,21 @@ fn parse_directive_ifndef(
 /// Breaks stream into separate lines
 fn parse_lines(mut tokens: Vec<PPToken>) -> Vec<Line> {
     // Insert an extra newline into file to simplify parsing of directives
-    let len = tokens.len();
-    let location;
-
-    debug_assert_ne!(len, 0);
-    if len > 1 {
-        // clone location of character before EOF
-        location = tokens[len - 2].location.clone()
-    } else {
-        // use EOF to get location for newline
-        debug_assert_eq!(tokens[0].kind, PPTokenKind::EndOfFile);
-        location = tokens[0].location.clone();
-    };
-
-    // insert before EOF
-    tokens.insert(
-        len - 1,
-        PPToken {
-            kind: PPTokenKind::Whitespace,
-            value: "\n".to_owned(),
-            location,
-        },
-    );
-    debug_assert_eq!(tokens.last().unwrap().kind, PPTokenKind::EndOfFile);
+    {
+        let len = tokens.len();
+        debug_assert_ne!(len, 0);
+        debug_assert_eq!(tokens[len - 1].kind, PPTokenKind::EndOfFile);
+        if (len == 1) || (len > 1 && !tokens[len - 2].is_newline()) {
+            let mut newline = tokens[len - 1].clone();
+            newline.kind = PPTokenKind::Whitespace;
+            newline.value = "\n".to_owned();
+            tokens.insert(len - 1, newline);
+        }
+        let len = tokens.len();
+        debug_assert!(len >= 2);
+        debug_assert!(tokens[len - 2].is_newline());
+        debug_assert_eq!(tokens[len - 1].kind, PPTokenKind::EndOfFile);
+    }
 
     if log_enabled!(log::Level::Trace) {
         for (i, token) in tokens.iter().enumerate() {
@@ -894,15 +886,16 @@ fn process_file_inclusion(
         );
         return Vec::new();
     }
+    let included_input = Rc::clone(included_input.unwrap());
 
-    trace!(
+    debug!(
         "process_file_inclusion() included_input = {:?}",
         included_input
     );
-    let tokens = CharToken::from_input(included_input.unwrap());
+    let tokens = CharToken::from_input(&included_input);
     let phase1 = convert_trigraphs(tokens);
     let phase2 = splice_lines(tuctx, phase1);
-    let phase3 = lex(tuctx, phase2);
+    let phase3 = lex(tuctx, phase2, included_input);
     let lines = parse_lines(phase3);
     lines
 }

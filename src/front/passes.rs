@@ -5,6 +5,8 @@
 
 //! Define pass functions for each phase of compilation
 
+use std::rc::Rc;
+
 use crate::error::Result;
 use crate::front::lexer::lex;
 use crate::front::minor::{concatenate, convert_trigraphs, splice_lines, unescape};
@@ -38,8 +40,9 @@ pub fn phase2(tuctx: &mut TUCtx, args: &[String]) -> Result<()> {
 pub fn phase3(tuctx: &mut TUCtx, args: &[String]) -> Result<()> {
     args_assert_count("phase3", args, 0)?;
 
+    let tu_input = Rc::clone(tuctx.input());
     let tokens = tuctx.take_state()?.into_chartokens()?;
-    let output = lex(tuctx, tokens);
+    let output = lex(tuctx, tokens, tu_input);
     tuctx.set_state(TUState::PPTokens(output));
 
     Ok(())

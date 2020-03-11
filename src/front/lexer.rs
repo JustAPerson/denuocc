@@ -11,6 +11,7 @@ use lazy_static::lazy_static;
 use log::{debug, log_enabled, trace};
 use regex::{Regex, RegexSet};
 
+use crate::front::input::Input;
 use crate::front::location::{Location, Position};
 use crate::front::message::MessageKind;
 use crate::front::token::{CharToken, PPToken, PPTokenKind};
@@ -113,7 +114,7 @@ pub fn lex_one_token(input: &str) -> (&str, PPTokenKind) {
 }
 
 /// Categorize all tokens given by the input token sequence
-pub fn lex(tuctx: &mut TUCtx, tokens: Vec<CharToken>) -> Vec<PPToken> {
+pub fn lex(tuctx: &mut TUCtx, tokens: Vec<CharToken>, input: Rc<Input>) -> Vec<PPToken> {
     let string = CharToken::to_string(&tokens);
     debug_assert_eq!(tokens.len(), string.len());
 
@@ -162,11 +163,19 @@ pub fn lex(tuctx: &mut TUCtx, tokens: Vec<CharToken>) -> Vec<PPToken> {
         kind: PPTokenKind::EndOfFile,
         value: "".to_owned(),
         location: Location {
-            input: Rc::clone(tuctx.input()),
-            begin: Position {
-                absolute: 0,
-                line: 0,
-                column: 0,
+            input: input,
+            begin: match output.last().map(|t| &t.location) {
+                Some(last_loc) => {
+                    let mut eof_position = last_loc.begin.clone();
+                    eof_position.absolute += last_loc.len;
+                    eof_position.column += last_loc.len;
+                    eof_position
+                },
+                None => Position {
+                    absolute: 0,
+                    line: 1,
+                    column: 0,
+                },
             },
             len: 0,
             macro_use: None,
