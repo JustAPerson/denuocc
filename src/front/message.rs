@@ -5,6 +5,7 @@
 
 //! User visible messages about the input file
 
+use crate::front::input::Input;
 use crate::front::location::Location;
 use crate::front::minor::Encoding;
 use crate::front::token::PPTokenKind;
@@ -116,6 +117,23 @@ pub enum MessageKind {
 pub struct Message {
     pub kind: MessageKind,
     pub location: Location,
+}
+
+fn print_include_history(f: &mut std::fmt::Formatter, input: &Input) -> std::fmt::Result {
+    let mut included_from = &input.included_from;
+    if included_from.is_some() {
+        write!(f, "\nIncluded from:")?;
+    }
+    while let Some(from) = included_from {
+        write!(
+            f,
+            "\n{}: `{}`",
+            from.span.begin.fmt_begin(),
+            from.span.get_original_text()
+        )?;
+        included_from = &from.input.included_from;
+    }
+    Ok(())
 }
 
 impl std::fmt::Display for Message {
@@ -231,6 +249,9 @@ impl std::fmt::Display for Message {
                 previous.to_str(),
                 current.to_str()
             ),
-        }
+        }?;
+
+        print_include_history(f, &self.location.input)?;
+        Ok(())
     }
 }
