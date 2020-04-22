@@ -126,7 +126,7 @@ impl std::fmt::Display for Message {
         // for (name, line) in &self.include_history {
         //     writeln!(f, "Included from {}:{}:", &name, line)?;
         // }
-        write!(f, "{}: ", self.location.fmt_begin())?;
+        write!(f, "{}: ", self.location.get_outermost_macro_use_begin().fmt_begin())?;
         match &self.kind {
             ExpectedFound { expected, found } => {
                 write!(f, "expected {}; found {}", expected, found)

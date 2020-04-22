@@ -119,7 +119,7 @@ onetwo
 one2
 """
 messages = [
-  "<case>:1:23: concatenating `a` and `\"2\"` does not result in a valid preprocessor token",
+  "<case>:4:0: concatenating `a` and `\"2\"` does not result in a valid preprocessor token",
 ]
 
 ################################################################################
