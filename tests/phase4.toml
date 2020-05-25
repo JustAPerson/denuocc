@@ -655,6 +655,7 @@ extra_files.b = "#include <c>"
 extra_files.c = "#include <a>"
 input = "#include <a>"
 messages = [
+  "c:1:9: maximum nested include depth exceeded",
 ]
 
 [[suites.phase4.cases]]
@@ -678,7 +679,9 @@ should_panic = true # TODO NYI System #include paths
 [[suites.phase4.cases]]
 extra_files.invalid = "#define 3"
 input = "#include <invalid>"
-messages = []
+messages = [
+  "invalid:1:8: expected identifier token; found number token"
+]
 
 ################################################################################
 # If directives
