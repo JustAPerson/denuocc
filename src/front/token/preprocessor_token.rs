@@ -153,7 +153,7 @@ impl std::fmt::Display for PPTokenKind {
 
 impl std::fmt::Display for PPToken {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}", self.as_str())
+        write!(f, "{:?}", self.as_str())
     }
 }
 
