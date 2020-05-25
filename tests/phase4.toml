@@ -663,14 +663,14 @@ input = '#include "a"'
 messages = [
   "<case>:1:9: could not include `a`: file not found",
 ]
-should_panic = true # TODO NYI System #include paths
+ignored = true # TODO NYI System #include paths
 
 [[suites.phase4.cases]]
 input = '#include <a>'
 messages = [
   "<case>:1:9: could not include `a`: file not found",
 ]
-should_panic = true # TODO NYI System #include paths
+ignored = true # TODO NYI System #include paths
 
 ################################################################################
 # Error trails
@@ -698,6 +698,7 @@ c
 #endif
 """
 output = "a"
+ignored = true # TODO NYI
 
 [[suites.phase4.cases]]
 input = """
@@ -710,6 +711,7 @@ c
 #endif
 """
 output = "b"
+ignored = true # TODO NYI
 
 [[suites.phase4.cases]]
 input = """
@@ -722,6 +724,7 @@ c
 #endif
 """
 output = "c"
+ignored = true # TODO NYI
 
 [[suites.phase4.cases]]
 input = """
@@ -732,6 +735,7 @@ b
 #endif
 """
 output = "b"
+ignored = true # TODO NYI
 
 [[suites.phase4.cases]]
 input = """
@@ -803,6 +807,7 @@ input = """
 #endif
 """
 output = "4 5 6"
+ignored = true # TODO NYI
 
 [[suites.phase4.cases]]
 input = """
@@ -820,3 +825,4 @@ messages = [
   "<case>:1:12:",
   "<case>:1:12:",
 ]
+ignored = true # TODO NYI
