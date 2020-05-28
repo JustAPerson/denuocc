@@ -8,6 +8,8 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
+use log::{debug, error, info, warn};
+
 use crate::error::{ErrorKind, Result};
 use crate::flags::Flags;
 use crate::front::input::Input;
@@ -70,11 +72,13 @@ impl Driver {
     pub fn add_input_file(&mut self, path: impl AsRef<std::path::Path>) -> Result<()> {
         let stdin_path: &std::path::Path = "-".as_ref();
         let path = path.as_ref();
+        info!("Driver::add_input_file() path = {:?}", path);
 
         let name;
         let input;
 
         if path == stdin_path {
+            info!("Driver::add_input_file() reading from stdin");
             use std::io::Read;
 
             name = "<stdin>".to_owned();
@@ -89,6 +93,7 @@ impl Driver {
             input = Input::new(name.clone(), content, None);
         } else {
             name = path.to_string_lossy().into_owned();
+            info!("Driver::add_input_file() reading from file");
             let content = std::fs::read_to_string(path).map_err(|e| ErrorKind::InputFileError {
                 filename: name.to_owned(),
                 error: e,
@@ -100,6 +105,7 @@ impl Driver {
             input = Input::new(name.clone(), content, Some(pathbuf));
         }
 
+        info!("Driver::add_input_file() input = {:?}", &input);
         self.inputs.insert(name, Rc::new(input));
 
         Ok(())
@@ -114,6 +120,10 @@ impl Driver {
             name.starts_with("<") && name.ends_with(">"),
             "filename must be enclosed in <> brackets"
         );
+        info!(
+            "Driver::add_input_str() name = {:?} content = {:?}",
+            name, content
+        );
         self.inputs.insert(
             name.to_owned(),
             Rc::new(Input::new(name.to_owned(), content.to_owned(), None)),
@@ -123,16 +133,13 @@ impl Driver {
     /// Perform all compilations
     pub fn run_all(&mut self) -> Result<()> {
         let names: Vec<String> = self.inputs.keys().cloned().collect();
-        for name in &names {
-            // let messages = {
-            //     let mut tuctx = self.run_one(name)?;
-            //     tuctx.take_messages()
-            // };
-            // self.messages.insert(name.to_owned(), messages);
-            let mut tuctx = self.run_one(name)?;
+        info!("Driver::run_all() all names = {:?}", &names);
+        for name in names {
+            info!("Driver::run_all() running name = {:?}", name);
+            let mut tuctx = self.run_one(&name)?;
             let messages = tuctx.take_messages();
 
-            self.messages.insert(name.to_owned(), messages);
+            self.messages.insert(name, messages);
         }
         Ok(())
     }
@@ -142,8 +149,19 @@ impl Driver {
         // pub fn run_one<'a>(&'a mut self, name: &str) -> Result<TUCtx<'a>> {
         let mut ctx = TUCtx::from_driver(self, name);
 
-        for pass in &ctx.driver().flags.passes {
+        info!(
+            "Driver::run_one(name = {:?}) passes to run: {:?}",
+            name, &self.flags.passes
+        );
+        if self.flags.passes.is_empty() {
+            warn!("Driver::run_one(name = {:?}) no passes", name);
+        }
+        for pass in &self.flags.passes {
             let f = PASS_FUNCTIONS.get(&*pass.name).unwrap();
+            debug!(
+                "Driver::run_one(name = {:?}) running pass {:?}",
+                name, &pass.name
+            );
             f(&mut ctx, &pass.args)?;
         }
 
@@ -154,13 +172,15 @@ impl Driver {
     pub fn report_messages(&self) {
         for (_name, messages) in &self.messages {
             for message in messages {
-                eprintln!("{}", message);
+                eprintln!("{}", message.enriched_message());
             }
         }
     }
 
     /// Write output files to disk
-    pub fn write_output(&self) {}
+    pub fn write_output(&self) {
+        error!("Driver::write_output() NYI");
+    }
 }
 
 impl std::default::Default for Driver {
