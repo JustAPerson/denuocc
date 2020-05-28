@@ -16,6 +16,22 @@ pub enum Severity {
     Error,
 }
 
+impl Severity {
+    pub fn as_str(&self) -> &'static str {
+        match *self {
+            Severity::Info => "info",
+            Severity::Warning => "warning",
+            Severity::Error => "error",
+        }
+    }
+}
+
+impl std::fmt::Display for Severity {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum MessagePart {
     Plain(String),
@@ -112,43 +128,32 @@ pub enum MessageKind {
     },
 }
 
-#[derive(Clone, Debug)]
-pub struct Message {
-    pub kind: MessageKind,
-    pub location: Location,
-}
-
-impl std::fmt::Display for Message {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl MessageKind {
+    /// Formats the message headline
+    ///
+    /// The headline conveys the summary of the message. When presenting to the
+    /// end user, the message should be enriched with extra information.
+    pub fn get_headline(&self) -> String {
         use MessageKind::*;
-
-        // TODO include history / macro expansion
-        // for (name, line) in &self.include_history {
-        //     writeln!(f, "Included from {}:{}:", &name, line)?;
-        // }
-        write!(f, "{}: ", self.location.get_outermost_macro_use_begin().fmt_begin())?;
-        match &self.kind {
-            ExpectedFound { expected, found } => {
-                write!(f, "expected {}; found {}", expected, found)
-            },
-            Phase1FileEndingWithBackslash => write!(f, "file cannot end with a backslash"),
+        match &self {
+            ExpectedFound { expected, found } => format!("expected {}; found {}", expected, found),
+            Phase1FileEndingWithBackslash => format!("file cannot end with a backslash"),
             Phase3MissingTerminator { terminator } => {
-                write!(f, "missing closing {} terminator", terminator)
+                format!("missing closing {} terminator", terminator)
             },
             Phase4UnexpectedDirective { directive } => {
-                write!(f, "unexpected directive `{}`", &directive)
+                format!("unexpected directive `{}`", &directive)
             },
-            Phase4InvalidDirective { directive } => write!(f, "invalid directive `{}`", &directive),
+            Phase4InvalidDirective { directive } => format!("invalid directive `{}`", &directive),
             Phase4DefineOperator => {
-                write!(f, "expected identifier or left-paren after define operator")
+                format!("expected identifier or left-paren after define operator")
             },
             Phase4MacroArity {
                 name,
                 expected,
                 found,
                 vararg,
-            } => write!(
-                f,
+            } => format!(
                 "`{}` expects {} {} {}; found {}",
                 name,
                 if *vararg { "at least" } else { "exactly" },
@@ -160,53 +165,47 @@ impl std::fmt::Display for Message {
                 },
                 found
             ),
-            Phase4MacroRedefinitionDifferent { name, original } => write!(
-                f,
+            Phase4MacroRedefinitionDifferent { name, original } => format!(
                 "macro `{}` was originally defined differently here: {}",
                 name,
                 original.fmt_begin(),
             ),
-            Phase4UndefineInvalidMacro { name } => write!(f, "macro `{}` does not exist", name),
-            Phase4UnclosedMacroInvocation { name, open } => write!(
-                f,
+            Phase4UndefineInvalidMacro { name } => format!("macro `{}` does not exist", name),
+            Phase4UnclosedMacroInvocation { name, open } => format!(
                 "expected `)` to end invocation of macro `{}` which opened at: {}",
                 name,
                 open.fmt_begin()
             ),
             Phase4RepeatedMacroParameter { parameter } => {
-                write!(f, "macro parameter `{}` repeated", parameter)
+                format!("macro parameter `{}` repeated", parameter)
             },
             Phase4IllegalSingleHash => {
-                write!(f, "the `#` operator must be followed by a macro parameter")
+                format!("the `#` operator must be followed by a macro parameter")
             },
-            Phase4IllegalDoubleHash => write!(f, "a macro cannot begin nor end with `##`"),
-            Phase4BadConcatenation { lhs, rhs } => write!(
-                f,
+            Phase4IllegalDoubleHash => format!("a macro cannot begin nor end with `##`"),
+            Phase4BadConcatenation { lhs, rhs } => format!(
                 "concatenating `{}` and `{}` does not result in a valid preprocessor token",
                 lhs, rhs
             ),
-            Phase4IncludeBegin => write!(
-                f,
+            Phase4IncludeBegin => format!(
                 r#"expected `<FILENAME>`, `"FILENAME"`, or a macro that expands to either of those"#
             ),
-            Phase4IncludeUnclosed => write!(
-                f,
-                "expected `>` to close corresponding `<` after `#include`",
-            ),
+            Phase4IncludeUnclosed => {
+                format!("expected `>` to close corresponding `<` after `#include`",)
+            },
             Phase4IncludeExtra { kind } => {
-                write!(f, "expected newline after <FILENAME>; found {}", kind)
+                format!("expected newline after <FILENAME>; found {}", kind)
             },
-            Phase4IncludeDepth => write!(f, "maximum nested include depth exceeded"),
+            Phase4IncludeDepth => format!("maximum nested include depth exceeded"),
             Phase4IncludeNotFound { desired_file } => {
-                write!(f, "could not include `{}`: file not found", desired_file)
+                format!("could not include `{}`: file not found", desired_file)
             },
-            Phase5Empty => write!(f, "expected character after escape sequence"),
+            Phase5Empty => format!("expected character after escape sequence"),
             Phase5Incomplete {
                 expected,
                 found,
                 prefix,
-            } => write!(
-                f,
+            } => format!(
                 "expected {} digits after `\\{}`; found {}",
                 expected, prefix, found
             ),
@@ -214,23 +213,59 @@ impl std::fmt::Display for Message {
                 prefix,
                 value,
                 encoding,
-            } => write!(
-                f,
+            } => format!(
                 "`\\{}{}` exceeds range of type ({})",
                 prefix,
                 value,
                 encoding.type_str()
             ),
             Phase5Invalid { prefix, value } => {
-                write!(f, "`\\{}{}` cannot be represented", prefix, value)
+                format!("`\\{}{}` cannot be represented", prefix, value)
             },
-            Phase5Unrecognized { escape } => write!(f, "`\\{}` is not a valid escape", escape),
-            Phase6IncompatibleEncoding { previous, current } => write!(
-                f,
+            Phase5Unrecognized { escape } => format!("`\\{}` is not a valid escape", escape),
+            Phase6IncompatibleEncoding { previous, current } => format!(
                 "incompatible encoding when concatenating; previously `{}` but found `{}`",
                 previous.to_str(),
                 current.to_str()
             ),
         }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct Message {
+    pub kind: MessageKind,
+    pub location: Location,
+}
+
+impl Message {
+    pub fn fmt_enriched_message(&self, output: &mut String) -> std::fmt::Result {
+        use std::fmt::Write;
+        let severity = Severity::Error; // TODO message severities
+        writeln!(output, "{}: {}", severity, self.kind.get_headline())?;
+        writeln!(output, "  {}", self.location.fmt_begin())?;
+        writeln!(
+            output,
+            "  {}",
+            self.location.get_outermost_macro_use_begin().fmt_begin()
+        )?;
+        Ok(())
+    }
+
+    pub fn enriched_message(&self) -> String {
+        let mut output = String::new();
+        self.fmt_enriched_message(&mut output).unwrap();
+        output
+    }
+}
+
+impl std::fmt::Display for Message {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(
+            f,
+            "{}: ",
+            self.location.get_outermost_macro_use_begin().fmt_begin()
+        )?;
+        write!(f, "{}", self.kind.get_headline())
     }
 }
