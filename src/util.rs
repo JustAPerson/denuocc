@@ -3,17 +3,7 @@
 // or http://opensource.org/licenses/MIT>, at your option.  This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! Denuo C Compiler
+//! Functions and data structures not necessarily specific to compilers
 
-pub mod artifact;
-pub mod driver;
-pub mod error;
-pub mod flags;
-pub mod passes;
-pub mod tu;
-pub mod util;
-
-pub mod front;
-
-pub use crate::driver::Driver;
-pub use crate::error::{Error, Result};
+pub mod hashed;
+pub use hashed::Hashed;

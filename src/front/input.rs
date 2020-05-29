@@ -7,6 +7,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 use crate::front::location::Span;
+use crate::util::Hashed;
 
 #[derive(Clone)]
 pub struct IncludedFrom {
@@ -17,10 +18,10 @@ pub struct IncludedFrom {
 }
 
 /// An input to the compilation process
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Input {
     pub name: String,
-    pub content: String,
+    pub content: Hashed<String>,
     pub path: Option<PathBuf>,
     pub included_from: Option<IncludedFrom>,
     pub depth: usize,
@@ -28,6 +29,7 @@ pub struct Input {
 
 impl Input {
     pub fn new(name: String, content: String, path: Option<PathBuf>) -> Self {
+        let content = Hashed::new(content);
         Self {
             name,
             content,
@@ -44,25 +46,6 @@ impl std::fmt::Debug for IncludedFrom {
         f.debug_struct("IncludedFrom")
             .field("input_name", &self.input.name)
             .field("span_begin_fmt", &self.span.begin.fmt_begin())
-            .finish()
-    }
-}
-
-impl std::fmt::Debug for Input {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        // Avoid printing the entire `content` field
-        let content_hash = {
-            use std::hash::{Hash, Hasher};
-            let mut hasher = std::collections::hash_map::DefaultHasher::new();
-            self.content.hash(&mut hasher);
-            hasher.finish()
-        };
-
-        f.debug_struct("Input")
-            .field("name", &self.name)
-            .field("content_hash", &content_hash)
-            .field("path", &self.path)
-            .field("included_from", &self.included_from)
             .finish()
     }
 }
