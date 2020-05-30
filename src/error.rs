@@ -91,10 +91,13 @@ pub struct Error {
     interior: Box<ErrorInterior>,
 }
 
-impl std::ops::Deref for Error {
-    type Target = ErrorKind;
-    fn deref(&self) -> &Self::Target {
+impl Error {
+    pub fn kind(&self) -> &ErrorKind {
         &self.interior.kind
+    }
+
+    pub fn backtrace(&self) -> &backtrace::Backtrace {
+        &self.interior.backtrace
     }
 }
 

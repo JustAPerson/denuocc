@@ -9,7 +9,7 @@ use crate::front::location::Location;
 use crate::front::minor::Encoding;
 use crate::front::token::PPTokenKind;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum Severity {
     Info,
     Warning,
@@ -230,6 +230,13 @@ impl MessageKind {
             ),
         }
     }
+
+    pub fn get_severity(&self) -> Severity {
+        use Severity::*;
+        match self {
+            _ => Error, // TODO message severities
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -241,8 +248,12 @@ pub struct Message {
 impl Message {
     pub fn fmt_enriched_message(&self, output: &mut String) -> std::fmt::Result {
         use std::fmt::Write;
-        let severity = Severity::Error; // TODO message severities
-        writeln!(output, "{}: {}", severity, self.kind.get_headline())?;
+        writeln!(
+            output,
+            "{}: {}",
+            self.kind.get_severity(),
+            self.kind.get_headline()
+        )?;
         writeln!(output, "  {}", self.location.fmt_begin())?;
         writeln!(
             output,

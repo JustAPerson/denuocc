@@ -13,7 +13,7 @@ use log::{debug, error, info};
 use crate::error::{ErrorKind, Result};
 use crate::flags::Flags;
 use crate::front::input::Input;
-use crate::front::message::Message;
+use crate::front::message::{Message, Severity};
 use crate::passes::PASS_FUNCTIONS;
 use crate::tu::TUCtx;
 
@@ -39,7 +39,7 @@ impl Driver {
     /// Read command-line arguments from process environment
     pub fn parse_args_from_env(&mut self) -> Result<()> {
         let app = generate_clap(true);
-        self.process_clap_matches(app.get_matches())
+        self.process_clap_matches(app.get_matches_safe()?)
     }
 
     /// Read command-line arguments from string
@@ -177,9 +177,26 @@ impl Driver {
         }
     }
 
+    /// Return whether all translation units succeeded
+    ///
+    /// This will return `true` even if no translation units have even been run yet.
+    pub fn success(&self) -> bool {
+        self.count_messages(Severity::Error) == 0
+    }
+
+    /// Return the number of messages of this severity across all translation units
+    pub fn count_messages(&self, severity: Severity) -> usize {
+        self.messages
+            .values()
+            .flatten()
+            .filter(|m| m.kind.get_severity() == severity)
+            .count()
+    }
+
     /// Write output files to disk
-    pub fn write_output(&self) {
+    pub fn write_output(&self) -> Result<()> {
         error!("Driver::write_output() NYI");
+        Ok(())
     }
 }
 

@@ -3,15 +3,68 @@
 // or http://opensource.org/licenses/MIT>, at your option.  This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use denuocc::Driver;
+//! A command line interface for the compiler driver
+//!
+//! The following exit status codes are used:
+//! - `0` means compilation succeeded or no compilation was attempted
+//! - `1` means compilation failed because of a source error
+//! - `2` means compilation was misconfigured, or the command line arguments were malformed
+//! - `3` means an internal compiler exception occurred
+
+fn compile() -> denuocc::Result<bool> {
+    let mut driver = denuocc::Driver::default();
+    driver.parse_args_from_env()?;
+    driver.run_all()?;
+    driver.report_messages();
+
+    let success = driver.success();
+    if success {
+        driver.write_output()?;
+    }
+    Ok(success)
+}
+
+/// Handle driver errors
+fn handle_error(e: denuocc::Error) -> bool {
+    use clap::ErrorKind::{HelpDisplayed, VersionDisplayed};
+    if let denuocc::error::ErrorKind::ClapError(ce) = e.kind() {
+        if [HelpDisplayed, VersionDisplayed].contains(&ce.kind) {
+            println!("{}", ce.message);
+            std::process::exit(0);
+        }
+    }
+    eprintln!("error: {}", e);
+    std::process::exit(2);
+}
+
+fn run() -> bool {
+    env_logger::init();
+    compile().unwrap_or_else(handle_error)
+}
+
+fn ice_hook(p: &std::panic::PanicInfo) {
+    eprintln!("error: an internal compiler exception has occurred");
+
+    let message = match p.payload() {
+        x if x.is::<String>() => x.downcast_ref::<String>().unwrap().as_str(),
+        x if x.is::<&str>() => x.downcast_ref::<&str>().unwrap(),
+        _ => "exception type could not be determined",
+    };
+    eprintln!("error: {}", message);
+    eprintln!("");
+    eprintln!("{:?}", backtrace::Backtrace::new());
+    eprintln!("");
+    eprintln!("please file a bug report");
+
+    // Allow unwinding to occur (rather than exiting here) so that in the future we clean
+    // up any kind of file system state, perhaps some cache mechanism
+}
 
 fn main() {
-    env_logger::init();
-    let mut driver = Driver::default();
-
-    // TODO unwrap
-    driver.parse_args_from_env().unwrap();
-    driver.run_all().unwrap();
-    driver.report_messages();
-    driver.write_output();
+    std::panic::set_hook(Box::new(ice_hook));
+    let result = std::panic::catch_unwind(run);
+    match result {
+        Ok(success) => std::process::exit(if success { 0 } else { 1 }),
+        Err(_) => std::process::exit(3),
+    }
 }
