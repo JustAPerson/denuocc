@@ -8,7 +8,7 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use log::{debug, error, info, warn};
+use log::{debug, error, info};
 
 use crate::error::{ErrorKind, Result};
 use crate::flags::Flags;
@@ -54,12 +54,15 @@ impl Driver {
     }
 
     fn process_clap_matches(&mut self, matches: clap::ArgMatches) -> Result<()> {
+        debug!("Driver::process_clap_matches() matches = {:?}", &matches);
+        self.flags.process_clap_matches(&matches)?;
+
         if let Some(files) = matches.values_of("FILES") {
             for file in files {
                 self.add_input_file(file)?;
             }
         }
-        self.flags.process_clap_matches(matches)?;
+
         Ok(())
     }
 
@@ -153,9 +156,6 @@ impl Driver {
             "Driver::run_one(name = {:?}) passes to run: {:?}",
             name, &self.flags.passes
         );
-        if self.flags.passes.is_empty() {
-            warn!("Driver::run_one(name = {:?}) no passes", name);
-        }
         for pass in &self.flags.passes {
             let f = PASS_FUNCTIONS.get(&*pass.name).unwrap();
             debug!(
@@ -216,7 +216,7 @@ mod test {
     use super::*;
 
     #[test]
-    #[should_panic(expected = "input name not found")]
+    #[should_panic(expected = "input `missing` not found")]
     pub fn test_driver_run_one_missing_input() {
         let mut driver = Driver::new();
         driver.run_one("missing").unwrap();

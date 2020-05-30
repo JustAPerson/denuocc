@@ -7,6 +7,7 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 
 #[derive(Debug)]
 pub enum ErrorKind {
+    Generic(String),
     ClapError(clap::Error),
     InputFileError {
         filename: String,
@@ -39,6 +40,7 @@ impl std::fmt::Display for ErrorKind {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
         use ErrorKind::*;
         match self {
+            Generic(s) => write!(f, "{}", s),
             ClapError(e) => write!(f, "Cannot parse arguments: {}", e),
             InputFileError { filename, error } => {
                 write!(f, "Cannot read file `{}`: {}", filename, error)
@@ -108,12 +110,6 @@ impl std::fmt::Debug for Error {
     }
 }
 
-impl std::convert::From<clap::Error> for Error {
-    fn from(error: clap::Error) -> Error {
-        ErrorKind::ClapError(error).into()
-    }
-}
-
 impl std::convert::From<ErrorKind> for Error {
     fn from(kind: ErrorKind) -> Error {
         let interior = Box::new(ErrorInterior {
@@ -121,5 +117,17 @@ impl std::convert::From<ErrorKind> for Error {
             backtrace: backtrace::Backtrace::new(),
         });
         Error { interior }
+    }
+}
+
+impl std::convert::From<clap::Error> for Error {
+    fn from(error: clap::Error) -> Error {
+        ErrorKind::ClapError(error).into()
+    }
+}
+
+impl std::convert::From<String> for Error {
+    fn from(s: String) -> Error {
+        ErrorKind::Generic(s).into()
     }
 }

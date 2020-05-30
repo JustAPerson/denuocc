@@ -95,7 +95,7 @@ impl<'a> TUCtx<'a> {
                 driver
                     .inputs
                     .get(name)
-                    .unwrap_or_else(|| panic!("input name not found; got `{}`", name)),
+                    .unwrap_or_else(|| panic!("input `{}` not found", name)),
             ),
             included_inputs: Vec::new(),
             messages: Vec::new(),

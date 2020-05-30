@@ -5,7 +5,10 @@
 
 //! Compiler flags
 
+use std::str::FromStr;
+
 use lazy_static::lazy_static;
+use log::{trace, warn};
 use regex::Regex;
 
 use crate::error::Result;
@@ -17,18 +20,22 @@ pub struct Pass {
     pub args: Vec<String>,
 }
 
-impl std::str::FromStr for Pass {
-    type Err = ();
+impl FromStr for Pass {
+    type Err = String;
     fn from_str(s: &str) -> Result<Pass, Self::Err> {
         lazy_static! {
             static ref REGEX: Regex =
                 Regex::new(r"^([[:alpha:]][[:word:]]+)(\([^\)]+\))?$").unwrap();
         }
-        let captures = REGEX.captures(s).ok_or(())?;
+        let captures = REGEX
+            .captures(s)
+            .ok_or(format!("malformed pass specifier `{}`", s))?;
 
-        let name = captures.get(1).ok_or(())?.as_str().to_owned();
+        // assuming unwrap is safe because this group is not optional
+        let name = captures.get(1).unwrap().as_str().to_owned();
+
         if !PASS_NAMES.contains(&*name) {
-            return Err(());
+            return Err(format!("unknown pass `{}`", name));
         }
 
         let args = {
@@ -40,6 +47,8 @@ impl std::str::FromStr for Pass {
                 Vec::new()
             }
         };
+
+        trace!("Pass::from_str() name = {:?} args = {:?}", name, args);
 
         Ok(Pass { name, args })
     }
@@ -56,11 +65,17 @@ impl Flags {
         Flags { passes: Vec::new() }
     }
 
-    pub fn process_clap_matches(&mut self, matches: clap::ArgMatches) -> Result<()> {
-        use clap::values_t;
-
-        if matches.is_present("pass") {
-            self.passes.append(&mut values_t!(matches, "pass", Pass)?);
+    pub fn process_clap_matches(&mut self, matches: &clap::ArgMatches) -> Result<()> {
+        for pass_arg in matches.values_of_os("pass").into_iter().flatten() {
+            let pass_arg = pass_arg
+                .to_str()
+                .ok_or_else(|| format!("non utf-8 argument for --pass flag: {:?}", pass_arg))?;
+            let pass = Pass::from_str(pass_arg)
+                .map_err(|e| format!("invalid argument for --pass flag: {}", e))?;
+            self.passes.push(pass);
+        }
+        if self.passes.is_empty() {
+            warn!("Flags::process_clap_matches() no passes");
         }
 
         Ok(())
@@ -111,8 +126,8 @@ mod test {
         let error = driver
             .parse_args_from_str(&["--pass=nonexistent"])
             .unwrap_err();
-        match *error {
-            ErrorKind::ClapError(..) => { /* good */ },
+        match error.kind() {
+            ErrorKind::Generic(..) => { /* good */ },
             _ => panic!(), // bad
         }
 
