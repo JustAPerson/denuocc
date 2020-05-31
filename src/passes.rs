@@ -9,7 +9,7 @@ use std::collections::{HashMap, HashSet};
 
 use lazy_static::lazy_static;
 
-use crate::error::{ErrorKind, Result};
+use crate::driver::{ErrorKind, Result};
 use crate::front;
 use crate::tu::TUCtx;
 

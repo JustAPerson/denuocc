@@ -10,8 +10,12 @@ use std::rc::Rc;
 
 use log::{debug, error, info};
 
-use crate::error::{ErrorKind, Result};
-use crate::flags::Flags;
+pub mod error;
+pub mod flags;
+
+pub use self::error::{Error, ErrorKind, Result};
+pub use self::flags::Flags;
+
 use crate::front::input::Input;
 use crate::front::message::{Message, Severity};
 use crate::passes::PASS_FUNCTIONS;

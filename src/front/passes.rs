@@ -7,7 +7,7 @@
 
 use std::rc::Rc;
 
-use crate::error::Result;
+use crate::driver::Result;
 use crate::front::lexer::lex;
 use crate::front::minor::{concatenate, convert_trigraphs, splice_lines, unescape};
 use crate::front::preprocessor::preprocess;

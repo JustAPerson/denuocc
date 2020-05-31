@@ -11,7 +11,7 @@ use lazy_static::lazy_static;
 use log::{trace, warn};
 use regex::Regex;
 
-use crate::error::Result;
+use crate::driver::Result;
 use crate::passes::PASS_NAMES;
 
 #[derive(Clone, Debug)]
@@ -121,7 +121,7 @@ mod test {
 
     #[test]
     fn flags_pass_parsing_integration() {
-        use crate::error::ErrorKind;
+        use crate::driver::ErrorKind;
         let mut driver = Driver::new();
         let error = driver
             .parse_args_from_str(&["--pass=nonexistent"])

@@ -7,13 +7,10 @@
 
 pub mod artifact;
 pub mod driver;
-pub mod error;
-pub mod flags;
 pub mod passes;
 pub mod tu;
 pub mod util;
 
 pub mod front;
 
-pub use crate::driver::Driver;
-pub use crate::error::{Error, Result};
+pub use crate::driver::{Driver, Error, ErrorKind, Result};

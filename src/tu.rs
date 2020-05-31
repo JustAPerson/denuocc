@@ -8,8 +8,7 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::driver::Driver;
-use crate::error::{ErrorKind, Result};
+use crate::driver::{Driver, ErrorKind, Result};
 use crate::front::input::{IncludedFrom, Input};
 use crate::front::location::Location;
 use crate::front::message::{Message, MessageKind};
