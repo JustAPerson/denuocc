@@ -24,22 +24,9 @@ fn compile() -> denuocc::Result<bool> {
     Ok(success)
 }
 
-/// Handle driver errors
-fn handle_error(e: denuocc::Error) -> bool {
-    use clap::ErrorKind::{HelpDisplayed, VersionDisplayed};
-    if let denuocc::error::ErrorKind::ClapError(ce) = e.kind() {
-        if [HelpDisplayed, VersionDisplayed].contains(&ce.kind) {
-            println!("{}", ce.message);
-            std::process::exit(0);
-        }
-    }
-    eprintln!("error: {}", e);
-    std::process::exit(2);
-}
-
 fn run() -> bool {
     env_logger::init();
-    compile().unwrap_or_else(handle_error)
+    compile().unwrap_or_else(|e| e.print_and_exit())
 }
 
 fn ice_hook(p: &std::panic::PanicInfo) {
