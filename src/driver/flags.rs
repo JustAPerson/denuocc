@@ -5,59 +5,57 @@
 
 //! Compiler flags
 
-use std::str::FromStr;
-
 use lazy_static::lazy_static;
 use log::{trace, warn};
 use regex::Regex;
 
 use crate::driver::Result;
-use crate::passes::PASS_NAMES;
+use crate::passes::Pass;
+use crate::passes::PASS_CONSTRUCTORS;
 
-#[derive(Clone, Debug)]
-pub struct Pass {
-    pub name: String,
-    pub args: Vec<String>,
+lazy_static! {
+    static ref REGEX: Regex = Regex::new(r"^([[:alpha:]][[:word:]]+)(\([^\)]+\))?$").unwrap();
 }
 
-impl FromStr for Pass {
-    type Err = String;
-    fn from_str(s: &str) -> Result<Pass, Self::Err> {
-        lazy_static! {
-            static ref REGEX: Regex =
-                Regex::new(r"^([[:alpha:]][[:word:]]+)(\([^\)]+\))?$").unwrap();
+fn lex_pass_args(specifier: &str) -> Result<(&str, Vec<&str>)> {
+    let captures = REGEX
+        .captures(specifier)
+        .ok_or(format!("malformed pass specifier `{}`", specifier))?;
+
+    // assuming unwrap is safe because this group is not optional
+    let name = captures.get(1).unwrap().as_str();
+
+    let args = {
+        if let Some(arg_str) = captures.get(2).map(|m| m.as_str()) {
+            let len = arg_str.len();
+            let arg_str = &arg_str[1..len - 1]; // exclude parenthesis at each end
+            arg_str.split(',').map(|s| s.trim()).collect()
+        } else {
+            Vec::new()
         }
-        let captures = REGEX
-            .captures(s)
-            .ok_or(format!("malformed pass specifier `{}`", s))?;
+    };
 
-        // assuming unwrap is safe because this group is not optional
-        let name = captures.get(1).unwrap().as_str().to_owned();
+    Ok((name, args))
+}
 
-        if !PASS_NAMES.contains(&*name) {
-            return Err(format!("unknown pass `{}`", name));
-        }
+fn parse_pass(specifier: &std::ffi::OsStr) -> Result<Box<dyn Pass>> {
+    let specifier = specifier
+        .to_str()
+        .ok_or_else(|| format!("non utf-8 argument for --pass flag: {:?}", specifier))?;
 
-        let args = {
-            if let Some(arg_str) = captures.get(2).map(|m| m.as_str()) {
-                let len = arg_str.len();
-                let arg_str = &arg_str[1..len - 1]; // exclude parenthesis at each end
-                arg_str.split(',').map(|s| s.trim().to_owned()).collect()
-            } else {
-                Vec::new()
-            }
-        };
+    let (name, args) = lex_pass_args(specifier)?;
+    trace!("Pass::from_str() name = {:?} args = {:?}", name, args);
 
-        trace!("Pass::from_str() name = {:?} args = {:?}", name, args);
-
-        Ok(Pass { name, args })
-    }
+    let constructor = PASS_CONSTRUCTORS
+        .get(name)
+        .ok_or_else(|| format!("unknown pass `{}`", name))?;
+    (constructor)(&*args)
 }
 
 /// Compiler flags
 #[derive(Clone, Debug)]
 pub struct Flags {
-    pub passes: Vec<Pass>,
+    pub passes: Vec<Box<dyn Pass>>,
 }
 
 impl Flags {
@@ -66,17 +64,17 @@ impl Flags {
     }
 
     pub fn process_clap_matches(&mut self, matches: &clap::ArgMatches) -> Result<()> {
-        for pass_arg in matches.values_of_os("pass").into_iter().flatten() {
-            let pass_arg = pass_arg
-                .to_str()
-                .ok_or_else(|| format!("non utf-8 argument for --pass flag: {:?}", pass_arg))?;
-            let pass = Pass::from_str(pass_arg)
-                .map_err(|e| format!("invalid argument for --pass flag: {}", e))?;
-            self.passes.push(pass);
-        }
-        if self.passes.is_empty() {
+        // use requested passes or use defaults?
+        if matches.is_present("pass") {
+            for pass_arg in matches.values_of_os("pass").into_iter().flatten() {
+                let pass = parse_pass(pass_arg)
+                    .map_err(|e| format!("invalid argument for --pass flag: {}", e))?;
+                self.passes.push(pass);
+            }
+        } else {
             warn!("Flags::process_clap_matches() no passes");
         }
+        assert!(!self.passes.is_empty());
 
         Ok(())
     }
@@ -92,12 +90,11 @@ impl std::default::Default for Flags {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::driver::Driver;
 
     fn pass_parsing_case(input: &str, name: &str, args: &[&str]) {
-        let pass: Pass = input.parse().unwrap();
-        assert_eq!(pass.name, name);
-        assert_eq!(pass.args, args);
+        let lexed = lex_pass_args(input).unwrap();
+        assert_eq!(lexed.0, name);
+        assert_eq!(lexed.1, args);
     }
 
     #[test]
@@ -117,31 +114,5 @@ mod test {
         pass_parsing_case("state_save", "state_save", &[]);
         pass_parsing_case("state_save(1)", "state_save", &["1"]);
         pass_parsing_case("state_save(1,two)", "state_save", &["1", "two"]);
-    }
-
-    #[test]
-    fn flags_pass_parsing_integration() {
-        use crate::driver::ErrorKind;
-        let mut driver = Driver::new();
-        let error = driver
-            .parse_args_from_str(&["--pass=nonexistent"])
-            .unwrap_err();
-        match error.kind() {
-            ErrorKind::Generic(..) => { /* good */ },
-            _ => panic!(), // bad
-        }
-
-        driver.parse_args_from_str(&["--pass=state_save"]).unwrap();
-        assert_eq!(driver.flags.passes[0].name, "state_save");
-
-        driver.clear_flags();
-        driver
-            .parse_args_from_str(&["--pass=state_print;state_save(a, b);state_print"])
-            .unwrap();
-        assert_eq!(driver.flags.passes[0].name, "state_print");
-        assert_eq!(driver.flags.passes[1].name, "state_save");
-        assert_eq!(driver.flags.passes[1].args[0], "a");
-        assert_eq!(driver.flags.passes[1].args[1], "b");
-        assert_eq!(driver.flags.passes[2].name, "state_print");
     }
 }

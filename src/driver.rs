@@ -18,7 +18,6 @@ pub use self::flags::Flags;
 
 use crate::front::input::Input;
 use crate::front::message::{Message, Severity};
-use crate::passes::PASS_FUNCTIONS;
 use crate::tu::TUCtx;
 
 /// Main interface for invoking denuocc
@@ -161,12 +160,11 @@ impl Driver {
             name, &self.flags.passes
         );
         for pass in &self.flags.passes {
-            let f = PASS_FUNCTIONS.get(&*pass.name).unwrap();
             debug!(
                 "Driver::run_one(name = {:?}) running pass {:?}",
-                name, &pass.name
+                name, &pass
             );
-            f(&mut ctx, &pass.args)?;
+            pass.run(&mut ctx)?;
         }
 
         Ok(ctx)

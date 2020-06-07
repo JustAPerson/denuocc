@@ -11,72 +11,90 @@ use crate::driver::Result;
 use crate::front::lexer::lex;
 use crate::front::minor::{concatenate, convert_trigraphs, splice_lines, unescape};
 use crate::front::preprocessor::preprocess;
-use crate::passes::helper::args_assert_count;
+use crate::passes::Pass;
 use crate::tu::{TUCtx, TUState};
 
-/// Calls [`front::minor::convert_trigraphs`](convert_trigraphs)
-pub fn phase1(tuctx: &mut TUCtx, args: &[String]) -> Result<()> {
-    args_assert_count("phase1", args, 0)?;
+declare_pass!(
+    /// Calls [`front::minor::convert_trigraphs`](convert_trigraphs)
+    phase1 => pub struct Phase1 {}
+);
+impl Pass for Phase1 {
+    fn run(&self, tuctx: &mut TUCtx) -> Result<()> {
+        let tokens = tuctx.take_state()?.into_chartokens()?;
+        let output = convert_trigraphs(tokens);
+        tuctx.set_state(TUState::CharTokens(output));
 
-    let tokens = tuctx.take_state()?.into_chartokens()?;
-    let output = convert_trigraphs(tokens);
-    tuctx.set_state(TUState::CharTokens(output));
-
-    Ok(())
+        Ok(())
+    }
 }
 
-/// Calls [`front::minor::splice_lines`](splice_lines)
-pub fn phase2(tuctx: &mut TUCtx, args: &[String]) -> Result<()> {
-    args_assert_count("phase2", args, 0)?;
+declare_pass!(
+    /// Calls [`front::minor::splice_lines`](splice_lines)
+    phase2 => pub struct Phase2 {}
+);
+impl Pass for Phase2 {
+    fn run(&self, tuctx: &mut TUCtx) -> Result<()> {
+        let tokens = tuctx.take_state()?.into_chartokens()?;
+        let output = splice_lines(tuctx, tokens);
+        tuctx.set_state(TUState::CharTokens(output));
 
-    let tokens = tuctx.take_state()?.into_chartokens()?;
-    let output = splice_lines(tuctx, tokens);
-    tuctx.set_state(TUState::CharTokens(output));
-
-    Ok(())
+        Ok(())
+    }
 }
 
-/// Calls [`front::lexer::lex`](lex)
-pub fn phase3(tuctx: &mut TUCtx, args: &[String]) -> Result<()> {
-    args_assert_count("phase3", args, 0)?;
+declare_pass!(
+    /// Calls [`front::lexer::lex`](lex)
+    phase3 => pub struct Phase3 {}
+);
+impl Pass for Phase3 {
+    fn run(&self, tuctx: &mut TUCtx) -> Result<()> {
+        let tu_input = Rc::clone(tuctx.input());
+        let tokens = tuctx.take_state()?.into_chartokens()?;
+        let output = lex(tuctx, tokens, tu_input);
+        tuctx.set_state(TUState::PPTokens(output));
 
-    let tu_input = Rc::clone(tuctx.input());
-    let tokens = tuctx.take_state()?.into_chartokens()?;
-    let output = lex(tuctx, tokens, tu_input);
-    tuctx.set_state(TUState::PPTokens(output));
-
-    Ok(())
+        Ok(())
+    }
 }
 
-/// Calls [`front::preprocessor::preprocess`](preprocess)
-pub fn phase4(tuctx: &mut TUCtx, args: &[String]) -> Result<()> {
-    args_assert_count("phase4", args, 0)?;
+declare_pass!(
+    /// Calls [`front::preprocessor::preprocess`](preprocess)
+    phase4 => pub struct Phase4 {}
+);
+impl Pass for Phase4 {
+    fn run(&self, tuctx: &mut TUCtx) -> Result<()> {
+        let tokens = tuctx.take_state()?.into_pptokens()?;
+        let output = preprocess(tuctx, tokens);
+        tuctx.set_state(TUState::PPTokens(output));
 
-    let tokens = tuctx.take_state()?.into_pptokens()?;
-    let output = preprocess(tuctx, tokens);
-    tuctx.set_state(TUState::PPTokens(output));
-
-    Ok(())
+        Ok(())
+    }
 }
 
-/// Calls [`front::minor::unescape`](unescape)
-pub fn phase5(tuctx: &mut TUCtx, args: &[String]) -> Result<()> {
-    args_assert_count("phase5", args, 0)?;
+declare_pass!(
+    /// Calls [`front::minor::unescape`](unescape)
+    phase5 => pub struct Phase5 {}
+);
+impl Pass for Phase5 {
+    fn run(&self, tuctx: &mut TUCtx) -> Result<()> {
+        let mut tokens = tuctx.take_state()?.into_pptokens()?;
+        unescape(tuctx, &mut tokens);
+        tuctx.set_state(TUState::PPTokens(tokens));
 
-    let mut tokens = tuctx.take_state()?.into_pptokens()?;
-    unescape(tuctx, &mut tokens);
-    tuctx.set_state(TUState::PPTokens(tokens));
-
-    Ok(())
+        Ok(())
+    }
 }
 
-/// Calls [`front::minor::concatenate`](concatenate)
-pub fn phase6(tuctx: &mut TUCtx, args: &[String]) -> Result<()> {
-    args_assert_count("phase6", args, 0)?;
+declare_pass! {
+    /// Calls [`front::minor::concatenate`](concatenate)
+    phase6 => pub struct Phase6 {}
+}
+impl Pass for Phase6 {
+    fn run(&self, tuctx: &mut TUCtx) -> Result<()> {
+        let tokens = tuctx.take_state()?.into_pptokens()?;
+        let output = concatenate(tuctx, tokens);
+        tuctx.set_state(TUState::PPTokens(output));
 
-    let tokens = tuctx.take_state()?.into_pptokens()?;
-    let output = concatenate(tuctx, tokens);
-    tuctx.set_state(TUState::PPTokens(output));
-
-    Ok(())
+        Ok(())
+    }
 }

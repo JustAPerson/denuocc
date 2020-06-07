@@ -33,14 +33,15 @@ pub enum ErrorKind {
     },
 
     PassArgsArity {
-        pass_name: &'static str,
-        expects: u32,
-        got: u32,
+        pass_name: String,
+        expects: usize,
+        got: usize,
     },
-    PassArgsArityAtMost {
-        pass_name: &'static str,
-        most: u32,
-        got: u32,
+    PassArgsType {
+        pass_name: String,
+        index: usize,
+        expects: &'static str,
+        got: String,
     },
 }
 
@@ -73,17 +74,18 @@ impl std::fmt::Display for ErrorKind {
                 got,
             } => write!(
                 f,
-                "pass `{}` takes {} arguments; received {}",
+                "pass `{}` expected {} arguments but received {}",
                 pass_name, expects, got
             ),
-            PassArgsArityAtMost {
+            PassArgsType {
                 pass_name,
-                most,
+                index,
+                expects,
                 got,
             } => write!(
                 f,
-                "pass `{}` takes at most {} arguments; received {}",
-                pass_name, most, got
+                "pass `{}` cannot parse \"{}\" as {} for argument {}",
+                pass_name, got, expects, index
             ),
         }
     }

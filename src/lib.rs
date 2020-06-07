@@ -7,6 +7,7 @@
 
 pub mod artifact;
 pub mod driver;
+#[macro_use]
 pub mod passes;
 pub mod tu;
 pub mod util;
