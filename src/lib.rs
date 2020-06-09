@@ -5,7 +5,6 @@
 
 //! Denuo C Compiler
 
-pub mod artifact;
 pub mod driver;
 #[macro_use]
 pub mod passes;
