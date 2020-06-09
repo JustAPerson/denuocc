@@ -152,13 +152,8 @@ impl Driver {
 
     /// Perform compilation of single translation unit
     pub fn run_one<'a>(&'a mut self, name: &str) -> Result<TUCtx<'a>> {
-        // pub fn run_one<'a>(&'a mut self, name: &str) -> Result<TUCtx<'a>> {
         let mut ctx = TUCtx::from_driver(self, name);
 
-        info!(
-            "Driver::run_one(name = {:?}) passes to run: {:?}",
-            name, &self.flags.passes
-        );
         for pass in &self.flags.passes {
             debug!(
                 "Driver::run_one(name = {:?}) running pass {:?}",

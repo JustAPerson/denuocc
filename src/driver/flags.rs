@@ -6,7 +6,7 @@
 //! Compiler flags
 
 use lazy_static::lazy_static;
-use log::{trace, warn};
+use log::{info, trace};
 use regex::Regex;
 
 use crate::driver::Result;
@@ -52,6 +52,31 @@ fn parse_pass(specifier: &std::ffi::OsStr) -> Result<Box<dyn Pass>> {
     (constructor)(&*args)
 }
 
+pub mod default_passes {
+    use crate::passes::{front, internal, Pass};
+    pub const DEFAULT_PASSES_GENERIC: &[&dyn Pass] = &[
+        &internal::StateReadInput {},
+        &front::Phase1 {},
+        &front::Phase2 {},
+        &front::Phase3 {},
+        &front::Phase4 {},
+        &front::Phase5 {},
+        &front::Phase6 {},
+    ];
+}
+
+fn get_default_passes(_matches: &clap::ArgMatches) -> Vec<Box<dyn Pass>> {
+    let mut passes = Vec::new();
+
+    passes.extend(
+        default_passes::DEFAULT_PASSES_GENERIC
+            .iter()
+            .map(|&p| p.clone_pass()),
+    );
+
+    passes
+}
+
 /// Compiler flags
 #[derive(Clone, Debug)]
 pub struct Flags {
@@ -72,8 +97,9 @@ impl Flags {
                 self.passes.push(pass);
             }
         } else {
-            warn!("Flags::process_clap_matches() no passes");
+            self.passes = get_default_passes(matches);
         }
+        info!("Flags::process_clap_matches() passes: {:?}", &self.passes);
         assert!(!self.passes.is_empty());
 
         Ok(())
