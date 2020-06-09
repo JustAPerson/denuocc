@@ -10,6 +10,5 @@ pub mod lexer;
 pub mod location;
 pub mod message;
 pub mod minor;
-pub mod passes;
 pub mod preprocessor;
 pub mod token;

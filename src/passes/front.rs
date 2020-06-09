@@ -3,10 +3,11 @@
 // or http://opensource.org/licenses/MIT>, at your option.  This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! Define pass functions for each phase of compilation
+//! Passes for the C front end (preprocessing, parsing, type checking)
 
 use std::rc::Rc;
 
+use crate::declare_pass;
 use crate::driver::Result;
 use crate::front::lexer::lex;
 use crate::front::minor::{concatenate, convert_trigraphs, splice_lines, unescape};
