@@ -38,15 +38,15 @@ impl std::fmt::Display for Severity {
 
 /// Reusable element for [`MessageKind::ExpectedFound`][MessageKind::ExpectedFound]
 #[derive(Clone, Debug)]
-pub enum MessagePart {
+pub enum ExpectedFoundPart {
     Plain(String),
     PPToken(PPTokenKind),
     Directive(String),
 }
 
-impl std::fmt::Display for MessagePart {
+impl std::fmt::Display for ExpectedFoundPart {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        use MessagePart::*;
+        use ExpectedFoundPart::*;
 
         match self {
             Plain(string) => write!(f, "{}", string),
@@ -60,8 +60,8 @@ impl std::fmt::Display for MessagePart {
 #[derive(Clone, Debug)]
 pub enum MessageKind {
     ExpectedFound {
-        expected: MessagePart,
-        found: MessagePart,
+        expected: ExpectedFoundPart,
+        found: ExpectedFoundPart,
     },
     Phase1FileEndingWithBackslash,
     Phase3MissingTerminator {

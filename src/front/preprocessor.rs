@@ -13,7 +13,7 @@ use log::{debug, log_enabled, trace};
 use crate::front::input::IncludedFrom;
 use crate::front::lexer::lex_one_token;
 use crate::front::location::{Location, MacroUse, Span};
-use crate::front::message::{MessageKind, MessagePart};
+use crate::front::message::{MessageKind, ExpectedFoundPart};
 use crate::front::token::{PPToken, PPTokenKind};
 use crate::tu::TUCtx;
 
@@ -317,8 +317,8 @@ fn line_get_identifier_and_newline(
         tuctx.emit_message(
             identifier.location,
             MessageKind::ExpectedFound {
-                expected: MessagePart::Plain("identifier".to_owned()),
-                found: MessagePart::PPToken(identifier.kind),
+                expected: ExpectedFoundPart::Plain("identifier".to_owned()),
+                found: ExpectedFoundPart::PPToken(identifier.kind),
             },
         );
         return None;
@@ -333,8 +333,8 @@ fn line_get_identifier_and_newline(
         tuctx.emit_message(
             newline_token.location,
             MessageKind::ExpectedFound {
-                expected: MessagePart::Plain("newline".to_owned()),
-                found: MessagePart::PPToken(newline_token.kind),
+                expected: ExpectedFoundPart::Plain("newline".to_owned()),
+                found: ExpectedFoundPart::PPToken(newline_token.kind),
             },
         );
     }
@@ -352,8 +352,8 @@ fn parse_directive_define(tuctx: &mut TUCtx, tokens: Vec<PPToken>) -> Option<Dir
         tuctx.emit_message(
             name_token.location,
             MessageKind::ExpectedFound {
-                expected: MessagePart::PPToken(PPTokenKind::Identifier),
-                found: MessagePart::PPToken(name_token.kind),
+                expected: ExpectedFoundPart::PPToken(PPTokenKind::Identifier),
+                found: ExpectedFoundPart::PPToken(name_token.kind),
             },
         );
 
@@ -403,8 +403,8 @@ fn parse_directive_define(tuctx: &mut TUCtx, tokens: Vec<PPToken>) -> Option<Dir
                     tuctx.emit_message(
                         token.location,
                         MessageKind::ExpectedFound {
-                            expected: MessagePart::Plain("identifier or `...`".to_owned()),
-                            found: MessagePart::Plain(format!("`{}`", token.value)),
+                            expected: ExpectedFoundPart::Plain("identifier or `...`".to_owned()),
+                            found: ExpectedFoundPart::Plain(format!("`{}`", token.value)),
                         },
                     );
 
@@ -418,8 +418,8 @@ fn parse_directive_define(tuctx: &mut TUCtx, tokens: Vec<PPToken>) -> Option<Dir
                     tuctx.emit_message(
                         token.location,
                         MessageKind::ExpectedFound {
-                            expected: MessagePart::Plain("`,`".to_owned()),
-                            found: MessagePart::Plain(format!("`{}`", token.value)),
+                            expected: ExpectedFoundPart::Plain("`,`".to_owned()),
+                            found: ExpectedFoundPart::Plain(format!("`{}`", token.value)),
                         },
                     );
 
@@ -433,8 +433,8 @@ fn parse_directive_define(tuctx: &mut TUCtx, tokens: Vec<PPToken>) -> Option<Dir
                     tuctx.emit_message(
                         token.location,
                         MessageKind::ExpectedFound {
-                            expected: MessagePart::Plain("`)`".to_owned()),
-                            found: MessagePart::Plain(format!("`{}`", token.value)),
+                            expected: ExpectedFoundPart::Plain("`)`".to_owned()),
+                            found: ExpectedFoundPart::Plain(format!("`{}`", token.value)),
                         },
                     );
 
@@ -512,8 +512,8 @@ fn parse_directive_undefine(tuctx: &mut TUCtx, tokens: Vec<PPToken>) -> Option<D
         tuctx.emit_message(
             name_token.location,
             MessageKind::ExpectedFound {
-                expected: MessagePart::PPToken(PPTokenKind::Identifier),
-                found: MessagePart::PPToken(name_token.kind),
+                expected: ExpectedFoundPart::PPToken(PPTokenKind::Identifier),
+                found: ExpectedFoundPart::PPToken(name_token.kind),
             },
         );
 
@@ -528,8 +528,8 @@ fn parse_directive_undefine(tuctx: &mut TUCtx, tokens: Vec<PPToken>) -> Option<D
         tuctx.emit_message(
             name_token.location,
             MessageKind::ExpectedFound {
-                expected: MessagePart::Plain("newline".to_owned()),
-                found: MessagePart::PPToken(name_token.kind),
+                expected: ExpectedFoundPart::Plain("newline".to_owned()),
+                found: ExpectedFoundPart::PPToken(name_token.kind),
             },
         );
         return None;
@@ -561,8 +561,8 @@ fn parse_directive_if_generic(
             tuctx.emit_message(
                 line[0].location.clone(),
                 MessageKind::ExpectedFound {
-                    expected: MessagePart::Directive("endif".to_owned()),
-                    found: MessagePart::PPToken(PPTokenKind::EndOfFile),
+                    expected: ExpectedFoundPart::Directive("endif".to_owned()),
+                    found: ExpectedFoundPart::PPToken(PPTokenKind::EndOfFile),
                 },
             );
             return;
@@ -600,8 +600,8 @@ fn parse_directive_if_generic(
                     tuctx.emit_message(
                         should_be_newline.location,
                         MessageKind::ExpectedFound {
-                            expected: MessagePart::Plain("newline".to_owned()),
-                            found: MessagePart::PPToken(should_be_newline.kind),
+                            expected: ExpectedFoundPart::Plain("newline".to_owned()),
+                            found: ExpectedFoundPart::PPToken(should_be_newline.kind),
                         },
                     );
                 }
@@ -617,8 +617,8 @@ fn parse_directive_if_generic(
                 tuctx.emit_message(
                     line[0].location.clone(),
                     MessageKind::ExpectedFound {
-                        expected: MessagePart::Directive("endif".to_owned()),
-                        found: MessagePart::Directive(directive.to_owned()),
+                        expected: ExpectedFoundPart::Directive("endif".to_owned()),
+                        found: ExpectedFoundPart::Directive(directive.to_owned()),
                     },
                 );
                 return;
