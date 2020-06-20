@@ -3,12 +3,16 @@
 // or http://opensource.org/licenses/MIT>, at your option.  This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! User visible messages about the input file
+//! User visible messages about the input source code
 
 use crate::front::location::Location;
 use crate::front::minor::Encoding;
 use crate::front::token::PPTokenKind;
 
+/// The calculated severity of a message
+///
+/// When generated, messages do not have a severity. This is assigned later
+/// after consulting the given compiler flags.
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum Severity {
     Info,
@@ -32,6 +36,7 @@ impl std::fmt::Display for Severity {
     }
 }
 
+/// Reusable element for [`MessageKind::ExpectedFound`][MessageKind::ExpectedFound]
 #[derive(Clone, Debug)]
 pub enum MessagePart {
     Plain(String),
@@ -51,6 +56,7 @@ impl std::fmt::Display for MessagePart {
     }
 }
 
+/// Type of a message
 #[derive(Clone, Debug)]
 pub enum MessageKind {
     ExpectedFound {
@@ -239,6 +245,7 @@ impl MessageKind {
     }
 }
 
+/// A message about the source code being processed
 #[derive(Clone, Debug)]
 pub struct Message {
     pub kind: MessageKind,

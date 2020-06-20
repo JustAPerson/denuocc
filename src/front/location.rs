@@ -3,7 +3,7 @@
 // or http://opensource.org/licenses/MIT>, at your option.  This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! Represents a location within the input text
+//! Represents a location within the input source code
 
 use std::rc::Rc;
 
@@ -21,6 +21,7 @@ pub struct Position {
     pub column: u32,
 }
 
+/// Where a token was expanded from a macro
 #[derive(Clone)]
 pub struct MacroUse {
     pub definition: Rc<MacroDef>,
@@ -79,6 +80,7 @@ impl Location {
     }
 }
 
+/// Range of multiple tokens
 #[derive(Clone, Debug)]
 pub struct Span {
     pub begin: Location,
@@ -101,6 +103,7 @@ impl Span {
     }
 }
 
+/// Wrapper around any value that includes the [Span][] from which it came
 #[derive(Clone, Debug)]
 pub struct Spanned<T> {
     pub span: Span,

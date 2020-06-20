@@ -3,6 +3,11 @@
 // or http://opensource.org/licenses/MIT>, at your option.  This file may not be
 // copied, modified, or distributed except according to those terms.
 
+//! The different representations of a token at different phases of compilation
+//!
+//! A token is the minimum atomic unit under consideration during a particular
+//! phase of compilation.
+
 pub mod char_token;
 pub mod preprocessor_token;
 

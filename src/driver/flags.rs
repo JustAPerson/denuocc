@@ -49,7 +49,7 @@ fn parse_pass(specifier: &std::ffi::OsStr) -> Result<Box<dyn Pass>> {
     let constructor = PASS_CONSTRUCTORS
         .get(name)
         .ok_or_else(|| format!("unknown pass `{}`", name))?;
-    (constructor)(&*args)
+    constructor.construct(&*args)
 }
 
 pub mod default_passes {

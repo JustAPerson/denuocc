@@ -3,12 +3,15 @@
 // or http://opensource.org/licenses/MIT>, at your option.  This file may not be
 // copied, modified, or distributed except according to those terms.
 
+//! Input source code for compilation
+
 use std::path::PathBuf;
 use std::rc::Rc;
 
 use crate::front::location::Span;
 use crate::util::Hashed;
 
+/// Represents how a file was included by the preprocessor
 #[derive(Clone)]
 pub struct IncludedFrom {
     /// The input that performed the inclusion (not the one that was

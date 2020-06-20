@@ -4,6 +4,18 @@
 // copied, modified, or distributed except according to those terms.
 
 //! Compiler passes
+//!
+//! This module declares [Pass][] objects so they may be used during the compilation process.
+//!
+//! Compilation largely follows a linear series of transformation, where the
+//! output of one operation is used as the input of another transformation.
+//!
+//! The compiler will supply a default set of passes to use depending on the
+//! configuration. The user may also override the defaults by using the `--pass`
+//! command line flag. Both of these cases are handled in
+//! [`Flags::process_clap_matches()`][pcm].
+//!
+//! [pcm]: crate::driver::flags::Flags::process_clap_matches
 
 use std::collections::HashMap;
 
@@ -15,10 +27,17 @@ use crate::tu::TUCtx;
 pub mod front;
 pub mod internal;
 
+/// Step in the compilation process
+///
+/// See the [module documentation][crate::passes] for more details.
 pub trait Pass: std::fmt::Debug + ClonePass {
     fn run(&self, tuctx: &mut TUCtx) -> Result<()>;
 }
 
+/// Type system hack
+///
+/// Rust does not have a very good way to express that a trait object should be
+/// cloneable.
 pub trait ClonePass {
     fn clone_pass(&self) -> Box<dyn Pass>;
 }
@@ -33,12 +52,23 @@ impl Clone for Box<dyn Pass> {
     }
 }
 
-type Constructor = dyn Send + Sync + Fn(&[&str]) -> Result<Box<dyn Pass>>;
+/// A way of constructing a pass
+///
+/// This is implemented for the trait `Fn(&[&str]) -> Result<Box<dyn Pass>>`,
+/// meaning any function of that type implement this trait.
+pub trait ConstructPass: Send + Sync {
+    fn construct(&self, args: &[&str]) -> Result<Box<dyn Pass>>;
+}
+impl<T: Send + Sync + Fn(&[&str]) -> Result<Box<dyn Pass>>> ConstructPass for T {
+    fn construct(&self, args: &[&str]) -> Result<Box<dyn Pass>> {
+        self(args)
+    }
+}
 lazy_static! {
     /// A map from pass names to constructors
-    pub static ref PASS_CONSTRUCTORS: HashMap<&'static str, &'static Constructor> = {
+    pub static ref PASS_CONSTRUCTORS: HashMap<&'static str, &'static dyn ConstructPass> = {
         // Seems rustc has trouble type erasing these Fn implementations
-        fn erase(s: &'static str, c: &'static Constructor) -> (&'static str, &'static Constructor) {
+        fn erase(s: &'static str, c: &'static dyn ConstructPass) -> (&'static str, &'static dyn ConstructPass) {
             (s, c)
         }
         [
@@ -94,13 +124,16 @@ macro_rules! declare_pass {
     }
 }
 
-
-/// Useful functions for writing passes
+/// Functions used internally by [`declare_pass!()`][macro@declare_pass].
+///
+/// Use that macro instead of these directly.
 pub mod helper {
     use super::*;
 
-    /// Asserts that the pass was given the correct number of arguments or
-    /// construct an appropriate error.
+    /// Checks the number of arguments
+    ///
+    /// Returns a [`PassArgsArity`][crate::ErrorKind::PassArgsArity] error if
+    /// `args.len() ! = expects`.
     pub fn args_count(name: impl Into<String>, args: &[&str], expects: usize) -> Result<()> {
         if args.len() == expects {
             Ok(())
@@ -114,6 +147,10 @@ pub mod helper {
         }
     }
 
+    /// Parses and returns the corresponding argument
+    ///
+    /// Returns a [`PassArgsType`][crate::ErrorKind::PassArgsType]
+    /// error if parsing fails.
     pub fn args_get<T: std::str::FromStr>(
         name: impl Into<String>,
         args: &[&str],
@@ -131,20 +168,3 @@ pub mod helper {
         })
     }
 }
-
-// pub(crate) fn args_assert_at_most(
-//     pass_name: &'static str,
-//     args: &[String],
-//     most: u32,
-// ) -> Result<()> {
-//     if args.len() <= most as usize {
-//         Ok(())
-//     } else {
-//         Err(ErrorKind::PassArgsArityAtMost {
-//             pass_name,
-//             most,
-//             got: args.len() as u32,
-//         }
-//         .into())
-//     }
-// }

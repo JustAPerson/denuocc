@@ -19,6 +19,12 @@ use crate::tu::TUCtx;
 
 type Line = Vec<PPToken>;
 
+/// A definition of an object-like macro
+///
+/// Object like macros are declared in C as such:
+/// ```c
+/// #define FOO "replacement\n"
+/// ```
 #[derive(Clone, Debug)]
 pub struct MacroObject {
     name: String,
@@ -26,15 +32,24 @@ pub struct MacroObject {
     location: Location,
 }
 
+/// A definition of a function-like macro
+///
+/// Function-like macros are declared in C as such:
+/// ```c
+/// #define add(a, b) a + b
+/// ```
+/// The distinguishing feature from object-like macros is the left parenthesis
+/// directly after the name of the macro without any whitespace between.
 #[derive(Clone, Debug)]
 pub struct MacroFunction {
-    name: String,
-    replacement: Vec<PPToken>,
-    params: Vec<String>,
-    vararg: bool,
-    location: Location,
+    pub name: String,
+    pub replacement: Vec<PPToken>,
+    pub params: Vec<String>,
+    pub vararg: bool,
+    pub location: Location,
 }
 
+/// A macro definition of either type
 #[derive(Clone, Debug)]
 pub enum MacroDef {
     Object(MacroObject),
@@ -1635,6 +1650,9 @@ impl<'tu, 'drv, 'def> Expander<'tu, 'drv, 'def> {
     }
 }
 
+/// Performs phase 3 of compilation: preprocessing
+///
+/// This involves file inclusion, conditional inclusion, and macro expansion.
 pub fn preprocess(tuctx: &mut TUCtx, tokens: Vec<PPToken>) -> Vec<PPToken> {
     let lines = parse_lines(tokens);
 
