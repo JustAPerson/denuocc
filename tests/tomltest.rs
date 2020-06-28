@@ -84,7 +84,7 @@ struct Case {
 impl Case {
     fn run_input(&self, suite: &Suite) -> TUState {
         let mut driver = Driver::new();
-        driver.add_input_str("<case>", self.input.get_ref());
+        driver.add_input_str("<case>", self.input.get_ref()).unwrap();
 
         for pass in &suite.passes {
             let arg = format!("--pass={}", pass);
@@ -117,7 +117,8 @@ impl Case {
 
     fn run_output(&self, suite: &Suite) -> TUState {
         let mut driver = denuocc::Driver::new();
-        driver.add_input_str("<case>", self.output.as_ref().unwrap());
+        let output = self.output.as_ref().unwrap();
+        driver.add_input_str("<case>", output).unwrap();
 
         for pass in &suite.passes {
             let arg = format!("--pass={}", pass);

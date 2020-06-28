@@ -75,12 +75,11 @@ impl std::fmt::Display for TUState {
     }
 }
 
-/// Translation Unit Context
+/// Intermediate data kept while processing this translation unit
 #[derive(Clone, Debug)]
 pub struct TUCtx<'a> {
     driver: &'a Driver,
-    input: Rc<Input>,
-    included_inputs: Vec<Rc<Input>>,
+    inputs: Vec<Rc<Input>>,
     messages: Vec<Message>,
     state: Option<TUState>,
     saved_states: HashMap<String, Vec<TUState>>,
@@ -88,15 +87,18 @@ pub struct TUCtx<'a> {
 
 impl<'a> TUCtx<'a> {
     pub fn from_driver(driver: &'a Driver, name: &str) -> TUCtx<'a> {
+        let mut inputs = Vec::new();
+        inputs.push(Rc::clone(
+            &driver
+                .tus
+                .get(name)
+                .unwrap_or_else(|| panic!("input `{}` not found", name))
+                .input,
+        ));
+
         TUCtx {
-            driver: driver,
-            input: Rc::clone(
-                driver
-                    .inputs
-                    .get(name)
-                    .unwrap_or_else(|| panic!("input `{}` not found", name)),
-            ),
-            included_inputs: Vec::new(),
+            driver,
+            inputs,
             messages: Vec::new(),
             state: None,
             saved_states: HashMap::new(),
@@ -109,8 +111,8 @@ impl<'a> TUCtx<'a> {
     }
 
     /// Returns the corresponding input for this unit
-    pub fn input(&self) -> &Rc<Input> {
-        &self.input
+    pub fn original_input(&self) -> &Rc<Input> {
+        &self.inputs[0]
     }
 
     /// Returns the states associated with the given name
@@ -189,8 +191,8 @@ impl<'a> TUCtx<'a> {
         if let Some(mut input) = input {
             input.depth = included_from.input.depth + 1;
             input.included_from = Some(included_from);
-            self.included_inputs.push(Rc::new(input));
-            self.included_inputs.last() // always Some
+            self.inputs.push(Rc::new(input));
+            self.inputs.last() // always Some
         } else {
             None
         }

@@ -198,7 +198,7 @@ mod test {
 
     fn phase3(input: &str) -> (Vec<PPToken>, Vec<Message>) {
         let mut driver = crate::driver::Driver::new();
-        driver.add_input_str("<unit-test>", input);
+        driver.add_input_str("<unit-test>", input).unwrap();
         driver
             .parse_args_from_str(&[
                 "--pass=state_read_input",

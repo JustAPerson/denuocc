@@ -26,6 +26,8 @@ pub enum ErrorKind {
         error: std::io::Error,
     },
 
+    TooManyTU,
+
     TUStateAbsent,
     TUStateTypeError {
         current_type: &'static str,
@@ -57,6 +59,8 @@ impl std::fmt::Display for ErrorKind {
             OutputFileError { filename, error } => {
                 write!(f, "cannot write file `{}`: {}", filename, error)
             },
+
+            TooManyTU => write!(f, "cannot add translation unit; maximum reached"),
 
             TUStateAbsent => write!(f, "no input state for pass"),
             TUStateTypeError {
