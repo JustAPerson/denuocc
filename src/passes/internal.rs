@@ -6,9 +6,9 @@
 //! Passes for manipulating internal compiler state
 
 use crate::declare_pass;
-use crate::{ErrorKind, Result};
 use crate::passes::Pass;
 use crate::tu::TUCtx;
+use crate::{ErrorKind, Result};
 
 declare_pass!(
     /// Pretty-print [`TUCtx`][TUCtx]'s primary state to stderr

@@ -13,7 +13,7 @@ use log::{debug, log_enabled, trace};
 use crate::front::input::IncludedFrom;
 use crate::front::lexer::lex_one_token;
 use crate::front::location::{Location, MacroUse, Span};
-use crate::front::message::{MessageKind, ExpectedFoundPart};
+use crate::front::message::{ExpectedFoundPart, MessageKind};
 use crate::front::token::{PPToken, PPTokenKind};
 use crate::tu::TUCtx;
 

@@ -68,7 +68,10 @@ lazy_static! {
     /// A map from pass names to constructors
     pub static ref PASS_CONSTRUCTORS: HashMap<&'static str, &'static dyn ConstructPass> = {
         // Seems rustc has trouble type erasing these Fn implementations
-        fn erase(s: &'static str, c: &'static dyn ConstructPass) -> (&'static str, &'static dyn ConstructPass) {
+        fn erase(
+            s: &'static str,
+            c: &'static dyn ConstructPass,
+        ) -> (&'static str, &'static dyn ConstructPass) {
             (s, c)
         }
         [
