@@ -5,9 +5,9 @@
 
 //! User visible messages about the input source code
 
-use crate::front::location::Location;
-use crate::front::minor::Encoding;
-use crate::front::token::PPTokenKind;
+use crate::front::c::location::Location;
+use crate::front::c::minor::Encoding;
+use crate::front::c::token::PPTokenKind;
 
 /// The calculated severity of a message
 ///

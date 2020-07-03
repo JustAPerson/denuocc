@@ -9,9 +9,9 @@ use std::rc::Rc;
 
 use crate::core::Result;
 use crate::declare_pass;
-use crate::front::lexer::lex;
-use crate::front::minor::{concatenate, convert_trigraphs, splice_lines, unescape};
-use crate::front::preprocessor::preprocess;
+use crate::front::c::lexer::lex;
+use crate::front::c::minor::{concatenate, convert_trigraphs, splice_lines, unescape};
+use crate::front::c::preprocessor::preprocess;
 use crate::passes::Pass;
 use crate::tu::{TUCtx, TUState};
 

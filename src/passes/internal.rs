@@ -101,7 +101,7 @@ declare_pass!(
 );
 impl Pass for StateReadInput {
     fn run(&self, tuctx: &mut TUCtx) -> Result<()> {
-        use crate::front::token::CharToken;
+        use crate::front::c::token::CharToken;
         let input = tuctx.original_input();
         let tokens = CharToken::from_input(input);
         tuctx.set_state(crate::tu::TUState::CharTokens(tokens));

@@ -8,7 +8,7 @@
 use std::path::PathBuf;
 use std::rc::Rc;
 
-use crate::front::location::Span;
+use crate::front::c::location::Span;
 use crate::util::Hashed;
 
 /// Represents how a file was included by the preprocessor

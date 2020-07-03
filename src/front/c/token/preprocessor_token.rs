@@ -5,7 +5,7 @@
 
 //! Tokens encompassing strings of text used during preprocessing
 
-use crate::front::location::Location;
+use crate::front::c::location::Location;
 
 /// The different kinds of [`PPToken`]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]

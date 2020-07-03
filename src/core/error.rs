@@ -6,7 +6,7 @@
 //! Runtime errors within the compiler
 //!
 //! For errors originating in the provided code being translated, see
-//! [`Message`][crate::front::message::Message].
+//! [`Message`][crate::front::c::message::Message].
 
 /// [`Result`][std::result::Result] but defaults to using denuocc's
 /// [`Error`][Error]

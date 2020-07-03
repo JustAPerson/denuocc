@@ -13,7 +13,7 @@ use std::rc::Rc;
 use log::{debug, error, info};
 
 use crate::core::{ErrorKind, Result};
-use crate::front::message::Severity;
+use crate::front::c::message::Severity;
 use crate::session::{Session, SessionBuilder};
 use crate::tu::TranslationUnit;
 
@@ -197,6 +197,10 @@ mod test {
         let mut driver = Driver::new();
         driver.parse_cli_args_from_str(&[] as &[&str]).unwrap();
         let e = driver.add_input_file("nonexistent").unwrap_err();
-        assert!(if let crate::ErrorKind::InputFileError { .. } = e.kind() { true } else { false });
+        assert!(if let crate::ErrorKind::InputFileError { .. } = e.kind() {
+            true
+        } else {
+            false
+        });
     }
 }

@@ -11,10 +11,10 @@ use lazy_static::lazy_static;
 use log::{debug, log_enabled, trace};
 use regex::{Regex, RegexSet};
 
-use crate::front::input::Input;
-use crate::front::location::{Location, Position};
-use crate::front::message::MessageKind;
-use crate::front::token::{CharToken, PPToken, PPTokenKind};
+use crate::front::c::input::Input;
+use crate::front::c::location::{Location, Position};
+use crate::front::c::message::MessageKind;
+use crate::front::c::token::{CharToken, PPToken, PPTokenKind};
 use crate::tu::TUCtx;
 
 static TOKEN_PATTERNS: &[(&'static str, PPTokenKind)] = &[
@@ -194,7 +194,7 @@ pub fn lex(tuctx: &mut TUCtx, tokens: Vec<CharToken>, input: Rc<Input>) -> Vec<P
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::front::message::Message;
+    use crate::front::c::message::Message;
 
     fn phase3(input: &str) -> (Vec<PPToken>, Vec<Message>) {
         let session = crate::Session::builder()

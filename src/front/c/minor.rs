@@ -9,9 +9,9 @@ use std::convert::TryFrom;
 
 use log::{log_enabled, trace};
 
-use crate::front::location::Location;
-use crate::front::message::MessageKind;
-use crate::front::token::{CharToken, PPToken, PPTokenKind};
+use crate::front::c::location::Location;
+use crate::front::c::message::MessageKind;
+use crate::front::c::token::{CharToken, PPToken, PPTokenKind};
 use crate::tu::TUCtx;
 
 /// Phase 1: Convert trigraphs

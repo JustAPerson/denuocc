@@ -10,11 +10,11 @@ use std::vec::IntoIter;
 
 use log::{debug, log_enabled, trace};
 
-use crate::front::input::IncludedFrom;
-use crate::front::lexer::lex_one_token;
-use crate::front::location::{Location, MacroUse, Span};
-use crate::front::message::{ExpectedFoundPart, MessageKind};
-use crate::front::token::{PPToken, PPTokenKind};
+use crate::front::c::input::IncludedFrom;
+use crate::front::c::lexer::lex_one_token;
+use crate::front::c::location::{Location, MacroUse, Span};
+use crate::front::c::message::{ExpectedFoundPart, MessageKind};
+use crate::front::c::token::{PPToken, PPTokenKind};
 use crate::tu::TUCtx;
 
 type Line = Vec<PPToken>;
@@ -833,9 +833,9 @@ fn process_file_inclusion(
     span: Span,
     defines: &mut HashMap<String, Rc<MacroDef>>,
 ) -> Vec<Line> {
-    use crate::front::lexer::lex;
-    use crate::front::minor::{convert_trigraphs, splice_lines};
-    use crate::front::token::CharToken;
+    use crate::front::c::lexer::lex;
+    use crate::front::c::minor::{convert_trigraphs, splice_lines};
+    use crate::front::c::token::CharToken;
 
     debug_assert!(!tokens.is_empty()); // should always be a newline
     debug_assert!(tokens.last().unwrap().is_newline());

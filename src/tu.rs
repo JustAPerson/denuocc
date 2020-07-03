@@ -12,10 +12,10 @@ use std::rc::Rc;
 use log::debug;
 
 use crate::core::{ErrorKind, Result};
-use crate::front::input::{IncludedFrom, Input};
-use crate::front::location::Location;
-use crate::front::message::{Message, MessageKind};
-use crate::front::token::{CharToken, PPToken};
+use crate::front::c::input::{IncludedFrom, Input};
+use crate::front::c::location::Location;
+use crate::front::c::message::{Message, MessageKind};
+use crate::front::c::token::{CharToken, PPToken};
 use crate::session::Session;
 
 /// Permanent data for a translation unit

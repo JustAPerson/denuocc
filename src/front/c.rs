@@ -3,6 +3,12 @@
 // or http://opensource.org/licenses/MIT>, at your option.  This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! Language specific functionality
+//! Front end for the C language
 
-pub mod c;
+pub mod input;
+pub mod lexer;
+pub mod location;
+pub mod message;
+pub mod minor;
+pub mod preprocessor;
+pub mod token;

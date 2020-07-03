@@ -7,8 +7,8 @@
 
 use std::rc::Rc;
 
-use crate::front::input::Input;
-use crate::front::location::{Location, Position};
+use crate::front::c::input::Input;
+use crate::front::c::location::{Location, Position};
 
 /// A very simple token used in phases 1-3
 #[derive(Clone, Debug)]

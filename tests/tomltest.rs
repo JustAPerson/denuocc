@@ -11,6 +11,7 @@ extern crate test;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use denuocc::front::c::token::{CharToken, PPToken};
 use denuocc::tu::TUState;
 use denuocc::{Session, TranslationUnit};
 use serde_derive::Deserialize;
@@ -138,7 +139,6 @@ impl Case {
     }
 
     fn compare_input_output(&self, suite: &Suite, input: &TUState, output: &TUState) {
-        use denuocc::front::token::{CharToken, PPToken};
         use ResultsCompare::*;
 
         match suite.results_compare {
@@ -156,7 +156,6 @@ impl Case {
     }
 
     fn print_result(&self, suite: &Suite, result: &TUState) {
-        use denuocc::front::token::{CharToken, PPToken};
         use ResultsPrint::*;
 
         if suite.results_print.is_none() {

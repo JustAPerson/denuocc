@@ -7,8 +7,8 @@
 
 use std::rc::Rc;
 
-use crate::front::input::Input;
-use crate::front::preprocessor::MacroDef;
+use crate::front::c::input::Input;
+use crate::front::c::preprocessor::MacroDef;
 
 /// A specific point in a file
 #[derive(Copy, Clone, Debug, Default)]
