@@ -12,7 +12,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use denuocc::tu::TUState;
-use denuocc::Driver;
+use denuocc::{Session, TranslationUnit};
 use serde_derive::Deserialize;
 use test::{TestDesc, TestDescAndFn, TestFn, TestName, TestType};
 use toml::Spanned;
@@ -82,29 +82,37 @@ struct Case {
 }
 
 impl Case {
-    fn run_input(&self, suite: &Suite) -> TUState {
-        let mut driver = Driver::new();
-        driver.add_input_str("<case>", self.input.get_ref()).unwrap();
-
+    fn compile_case(&self, source: &str, suite: &Suite) -> TranslationUnit {
+        let mut args = Vec::new();
         for pass in &suite.passes {
-            let arg = format!("--pass={}", pass);
-            driver.parse_args_from_str(&[arg]).unwrap();
+            args.push(format!("--pass={}", pass))
         }
+        args.push("--pass=state_save(final)".to_owned());
 
-        if let Some(extra_files) = &self.extra_files {
-            driver.extra_files = extra_files.clone();
-        }
+        let session = Session::builder()
+            .parse_cli_args_from_str(&args)
+            .unwrap()
+            .add_extra_files(self.extra_files.clone().unwrap_or(HashMap::new()))
+            .build();
 
-        let mut tu = driver.run_one("<case>").unwrap();
-        let state = tu.take_state().unwrap();
+        let mut tu = TranslationUnit::builder(&session)
+            .source_string("<case>", source)
+            .build();
+
+        tu.run().unwrap();
+        tu
+    }
+
+    fn run_input(&self, suite: &Suite) -> TUState {
+        let tu = self.compile_case(self.input.get_mut(), suite);
+        let state = tu.saved_states("final")[0].clone();
         let messages = tu
-            .take_messages()
-            .into_iter()
+            .messages()
+            .iter()
             .map(|m| format!("{}", m))
             .collect::<Vec<_>>();
 
         self.print_result(suite, &state);
-
         if let Some(ref expected_messages) = self.messages {
             assert_eq!(&messages, expected_messages);
         } else if !messages.is_empty() {
@@ -116,18 +124,9 @@ impl Case {
     }
 
     fn run_output(&self, suite: &Suite) -> TUState {
-        let mut driver = denuocc::Driver::new();
-        let output = self.output.as_ref().unwrap();
-        driver.add_input_str("<case>", output).unwrap();
-
-        for pass in &suite.passes {
-            let arg = format!("--pass={}", pass);
-            driver.parse_args_from_str(&[arg]).unwrap();
-        }
-
-        let mut tu = driver.run_one("<case>").unwrap();
-        let state = tu.take_state().unwrap();
-        let messages = tu.take_messages();
+        let tu = self.compile_case(self.output.as_ref().unwrap(), suite);
+        let state = tu.saved_states("final")[0].clone();
+        let messages = tu.messages();
 
         self.print_result(suite, &state);
 

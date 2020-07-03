@@ -6,14 +6,112 @@
 //! Translation Unit
 
 use std::collections::HashMap;
+use std::path::Path;
 use std::rc::Rc;
 
-use crate::driver::{Driver, ErrorKind, Result};
+use log::debug;
+
+use crate::core::{ErrorKind, Result};
 use crate::front::input::{IncludedFrom, Input};
 use crate::front::location::Location;
 use crate::front::message::{Message, MessageKind};
 use crate::front::token::{CharToken, PPToken};
+use crate::session::Session;
 
+/// Permanent data for a translation unit
+#[derive(Clone, Debug)]
+pub struct TranslationUnit {
+    session: Rc<Session>,
+    input: Rc<Input>,
+    messages: Vec<Message>,
+    saved_states: HashMap<String, Vec<TUState>>,
+}
+
+impl TranslationUnit {
+    /// Entry point for creating a `TranslationUnit`
+    pub fn builder(session: &Rc<Session>) -> TranslationUnitBuilder {
+        TranslationUnitBuilder {
+            session: Rc::clone(session),
+            input: None,
+        }
+    }
+
+    /// Original source code
+    pub fn input(&self) -> &Rc<Input> {
+        &self.input
+    }
+
+    /// Messages generated during processing
+    pub fn messages(&self) -> &[Message] {
+        &self.messages
+    }
+
+    /// States saved by the [`state_save`][ss] pass
+    ///
+    /// [ss]: crate::passes::internal::StateSave
+    pub fn saved_states(&self, name: &str) -> &[TUState] {
+        &self.saved_states[name]
+    }
+
+    pub fn run(&mut self) -> Result<()> {
+        let mut ctx = TUCtx::from_tu(self);
+        ctx.run()?;
+        Ok(())
+    }
+}
+
+pub struct TranslationUnitBuilder {
+    session: Rc<Session>,
+    input: Option<Rc<Input>>,
+}
+
+impl TranslationUnitBuilder {
+    pub fn build(self) -> TranslationUnit {
+        TranslationUnit {
+            session: self.session,
+            input: self.input.expect("must provide an input"),
+            messages: Vec::new(),
+            saved_states: HashMap::new(),
+        }
+    }
+
+    fn assert_no_input(&self) {
+        assert!(
+            self.input.is_none(),
+            "cannot specify multiple sources/inputs"
+        );
+    }
+
+    pub fn source_file(mut self, path: &Path) -> Result<Self> {
+        self.assert_no_input();
+
+        let name = path.to_string_lossy().into_owned();
+        let content = std::fs::read_to_string(path).map_err(|e| ErrorKind::InputFileError {
+            filename: name.to_owned(),
+            error: e,
+        })?;
+
+        // make sure path we store is rooted
+        let mut pathbuf = std::env::current_dir().unwrap();
+        pathbuf.push(path);
+        let input = Input::new(name.clone(), content, Some(pathbuf));
+        self.input = Some(Rc::new(input));
+
+        Ok(self)
+    }
+
+    pub fn source_string(mut self, alias: impl Into<String>, content: impl Into<String>) -> Self {
+        let alias = alias.into();
+        let content = content.into();
+        assert!(
+            alias.starts_with("<") && alias.ends_with(">"),
+            "alias must be enclosed in <> brackets"
+        );
+        self.assert_no_input();
+        self.input = Some(Rc::new(Input::new(alias, content, None)));
+        self
+    }
+}
 /// Translation Unit State
 ///
 /// This is the primary intermediate state that is shared between passes.
@@ -76,38 +174,23 @@ impl std::fmt::Display for TUState {
 }
 
 /// Intermediate data kept while processing this translation unit
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct TUCtx<'a> {
-    driver: &'a Driver,
+    tu: &'a mut TranslationUnit,
     inputs: Vec<Rc<Input>>,
-    messages: Vec<Message>,
     state: Option<TUState>,
-    saved_states: HashMap<String, Vec<TUState>>,
 }
 
 impl<'a> TUCtx<'a> {
-    pub fn from_driver(driver: &'a Driver, name: &str) -> TUCtx<'a> {
+    pub fn from_tu(tu: &'a mut TranslationUnit) -> TUCtx<'a> {
         let mut inputs = Vec::new();
-        inputs.push(Rc::clone(
-            &driver
-                .tus
-                .get(name)
-                .unwrap_or_else(|| panic!("input `{}` not found", name))
-                .input,
-        ));
+        inputs.push(Rc::clone(&tu.input));
 
         TUCtx {
-            driver,
+            tu,
             inputs,
-            messages: Vec::new(),
             state: None,
-            saved_states: HashMap::new(),
         }
-    }
-
-    /// Returns the underlying compilation driver
-    pub fn driver(&self) -> &'a Driver {
-        self.driver
     }
 
     /// Returns the corresponding input for this unit
@@ -115,24 +198,15 @@ impl<'a> TUCtx<'a> {
         &self.inputs[0]
     }
 
-    /// Returns the states associated with the given name
-    ///
-    /// States are saved by the [`save_state`] method, which is implicitly used
-    /// in the `state_save` pass.
-    ///
-    /// [`save_state`]: struct.TUCtx.html#save_state
-    pub fn saved_states(&self, name: &str) -> &Vec<TUState> {
-        self.saved_states
-            .get(name)
-            .unwrap_or_else(|| panic!("No state named `{}` found", name))
-    }
-
     /// Saves the current state, associating it with the given name
     ///
-    /// Implicitly used in the `state_save` pass.
+    /// Implicitly used in the [`state_save`][ss] pass.
+    ///
+    /// [ss]: crate::passes::internal::StateSave
     pub fn save_state(&mut self, name: &str) -> Result<()> {
         let state = self.get_state()?.clone();
         let entry = self
+            .tu
             .saved_states
             .entry(name.to_owned())
             .or_insert_with(Vec::new);
@@ -160,16 +234,11 @@ impl<'a> TUCtx<'a> {
         self.state = Some(state);
     }
 
-    /// Move messages out of this context
-    pub fn take_messages(&mut self) -> Vec<Message> {
-        std::mem::replace(&mut self.messages, Vec::new())
-    }
-
     /// Emit an error to this translation unit's list
     pub fn emit_message(&mut self, location: impl Into<Location>, kind: MessageKind) {
-        self.messages.push(Message {
+        self.tu.messages.push(Message {
             location: location.into(),
-            kind: kind,
+            kind,
         });
     }
 
@@ -186,7 +255,10 @@ impl<'a> TUCtx<'a> {
             .as_ref()
             .map(|p| p.as_path())
             .clone();
-        let input = search_for_include(self, desired_file, including_file, system);
+        let input = self
+            .tu
+            .session
+            .search_for_include(desired_file, including_file, system);
 
         if let Some(mut input) = input {
             input.depth = included_from.input.depth + 1;
@@ -197,43 +269,17 @@ impl<'a> TUCtx<'a> {
             None
         }
     }
-}
 
-use std::path::{Path, PathBuf};
-fn search_for_include_system(tuctx: &TUCtx, desired_file: &str) -> Option<Input> {
-    if let Some(content) = tuctx.driver.extra_files.get(desired_file) {
-        return Some(Input::new(desired_file.to_owned(), content.clone(), None));
+    pub fn run(&mut self) -> Result<()> {
+        let session = Rc::clone(&self.tu.session);
+        for pass in &session.flags().passes {
+            debug!(
+                "TUCtx::run_one() tu alias {:?} running pass {:?}",
+                self.tu.input().name,
+                &pass
+            );
+            pass.run(self)?;
+        }
+        Ok(())
     }
-
-    unimplemented!("searching system paths for #include"); // TODO NYI System #include paths
-}
-
-fn search_for_include_quote(desired_file: &str, including_file: Option<&Path>) -> Option<Input> {
-    let mut path = including_file
-        .map(PathBuf::from)
-        .unwrap_or(std::env::current_dir().unwrap());
-    path.push(&desired_file);
-
-    let content = std::fs::read_to_string(&path);
-    if let Ok(content) = content {
-        Some(Input::new(desired_file.to_owned(), content, Some(path)))
-    } else {
-        None
-    }
-}
-
-fn search_for_include(
-    tuctx: &TUCtx,
-    desired_file: &str,
-    including_file: Option<&Path>,
-    system: bool,
-) -> Option<Input> {
-    let mut input = None;
-    if !system {
-        input = search_for_include_quote(desired_file, including_file);
-    }
-    if input.is_none() || system {
-        input = search_for_include_system(tuctx, desired_file);
-    }
-    input
 }

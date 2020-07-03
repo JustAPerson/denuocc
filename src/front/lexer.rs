@@ -197,23 +197,26 @@ mod test {
     use crate::front::message::Message;
 
     fn phase3(input: &str) -> (Vec<PPToken>, Vec<Message>) {
-        let mut driver = crate::driver::Driver::new();
-        driver.add_input_str("<unit-test>", input).unwrap();
-        driver
-            .parse_args_from_str(&[
+        let session = crate::Session::builder()
+            .parse_cli_args_from_str(&[
                 "--pass=state_read_input",
                 "--pass=phase1",
                 "--pass=phase2",
                 "--pass=phase3",
                 "--pass=state_save(pptokens)",
             ])
-            .unwrap();
-        let mut tu = driver.run_one("<unit-test>").unwrap();
+            .unwrap()
+            .build();
+        let mut tu = crate::TranslationUnit::builder(&session)
+            .source_string("<unit-test>", input)
+            .build();
+        tu.run().unwrap();
+
         let output = tu.saved_states("pptokens")[0]
             .clone()
             .into_pptokens()
             .unwrap();
-        let messages = tu.take_messages();
+        let messages = tu.messages().to_vec();
 
         (output, messages)
     }

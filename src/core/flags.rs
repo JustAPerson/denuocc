@@ -9,7 +9,7 @@ use lazy_static::lazy_static;
 use log::{info, trace};
 use regex::Regex;
 
-use crate::driver::Result;
+use crate::core::Result;
 use crate::passes::Pass;
 use crate::passes::PASS_CONSTRUCTORS;
 
@@ -111,6 +111,14 @@ impl std::default::Default for Flags {
         let flags = Flags::new();
         flags
     }
+}
+
+pub fn generate_clap_args<'a, 'b>() -> Vec<clap::Arg<'a, 'b>> {
+    vec![clap::Arg::with_name("pass")
+        .long("pass")
+        .multiple(true)
+        .value_delimiter(";")
+        .takes_value(true)]
 }
 
 #[cfg(test)]

@@ -15,13 +15,13 @@
 //! command line flag. Both of these cases are handled in
 //! [`Flags::process_clap_matches()`][pcm].
 //!
-//! [pcm]: crate::driver::flags::Flags::process_clap_matches
+//! [pcm]: crate::core::flags::Flags::process_clap_matches
 
 use std::collections::HashMap;
 
 use lazy_static::lazy_static;
 
-use crate::driver::{ErrorKind, Result};
+use crate::core::{ErrorKind, Result};
 use crate::tu::TUCtx;
 
 pub mod front;

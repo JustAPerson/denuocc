@@ -12,9 +12,9 @@
 //! - `3` means an internal compiler exception occurred
 
 fn compile() -> denuocc::Result<bool> {
-    let mut driver = denuocc::Driver::default();
-    driver.parse_args_from_env()?;
-    driver.run_all()?;
+    let mut driver = denuocc::Driver::new();
+    driver.parse_cli_args_from_env()?;
+    driver.run()?;
     driver.report_messages();
 
     let success = driver.success();

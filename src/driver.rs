@@ -3,77 +3,65 @@
 // or http://opensource.org/licenses/MIT>, at your option.  This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! Compiler entry point
+//! Easy-to-use API for invoking the compiler
 //!
-//! The [`Driver`][Driver] is what orchestrates the many parts of the
-//! compilation process.
+//! This intended to provide the majority of the functionality needed to create
+//! an executable compiler.
 
-use std::collections::HashMap;
 use std::rc::Rc;
 
 use log::{debug, error, info};
 
-pub mod error;
-pub mod flags;
-
-pub use self::error::{Error, ErrorKind, Result};
-pub use self::flags::Flags;
-
-use crate::front::input::Input;
-use crate::front::message::{Message, Severity};
-use crate::tu::TUCtx;
-
-/// Permanent data for a translation unit
-#[derive(Clone, Debug)]
-pub struct TranslationUnit {
-    /// Original source code
-    pub input: Rc<Input>,
-
-    /// Identifier number used in line tracking
-    pub id: u16,
-
-    /// Messages generated during processing
-    pub messages: Vec<Message>,
-}
+use crate::core::{ErrorKind, Result};
+use crate::front::message::Severity;
+use crate::session::{Session, SessionBuilder};
+use crate::tu::TranslationUnit;
 
 /// Main interface for invoking denuocc
 #[derive(Clone, Debug)]
 pub struct Driver {
+    /// The configuration of the compilation process
+    pub session: Option<Rc<Session>>,
+
     /// Inputs to compile and their results
-    pub tus: HashMap<String, TranslationUnit>,
-
-    /// Pseudo-files that can be `#included`, searched before system paths
-    pub extra_files: HashMap<String, String>,
-
-    /// The command line arguments
-    pub flags: Flags,
+    pub tus: Vec<TranslationUnit>,
 }
 
 impl Driver {
     pub fn new() -> Self {
-        Driver::default()
+        Driver {
+            session: None,
+            tus: Vec::new(),
+        }
     }
 
     /// Read command-line arguments from process environment
-    pub fn parse_args_from_env(&mut self) -> Result<()> {
-        let app = generate_clap(true);
-        self.process_clap_matches(app.get_matches_safe()?)
+    ///
+    /// The very first argument should be the binary name
+    pub fn parse_cli_args_from_env(&mut self) -> Result<()> {
+        let app = generate_driver_clap(true);
+        self.process_clap_matches(&app.get_matches_safe()?)
     }
 
     /// Read command-line arguments from string
     ///
     /// Do not include the binary name as first argument
-    pub fn parse_args_from_str(
+    pub fn parse_cli_args_from_str(
         &mut self,
         input: impl IntoIterator<Item = impl Into<std::ffi::OsString> + Clone>,
     ) -> Result<()> {
-        let app = generate_clap(false).setting(clap::AppSettings::NoBinaryName);
-        self.process_clap_matches(app.get_matches_from_safe(input)?)
+        let app = generate_driver_clap(false).setting(clap::AppSettings::NoBinaryName);
+        self.process_clap_matches(&app.get_matches_from_safe(input)?)
     }
 
-    fn process_clap_matches(&mut self, matches: clap::ArgMatches) -> Result<()> {
+    fn process_clap_matches(&mut self, matches: &clap::ArgMatches) -> Result<()> {
         debug!("Driver::process_clap_matches() matches = {:?}", &matches);
-        self.flags.process_clap_matches(&matches)?;
+
+        self.session = Some(
+            SessionBuilder::new()
+                .parse_cli_args_from_clap(matches)?
+                .build(),
+        );
 
         if let Some(files) = matches.values_of("FILES") {
             for file in files {
@@ -82,10 +70,6 @@ impl Driver {
         }
 
         Ok(())
-    }
-
-    pub fn clear_flags(&mut self) {
-        self.flags = Flags::default();
     }
 
     /// Adds the contents of the given path to the list of input translation
@@ -99,116 +83,70 @@ impl Driver {
         let path = path.as_ref();
         info!("Driver::add_input_file() path = {:?}", path);
 
-        let name;
-        let mut input;
-
+        let mut tub = TranslationUnit::builder(self.session.as_ref().unwrap());
         if path == stdin_path {
             info!("Driver::add_input_file() reading from stdin");
             use std::io::Read;
 
-            name = "<stdin>".to_owned();
             let mut content = String::new();
             std::io::stdin()
                 .lock()
                 .read_to_string(&mut content)
                 .map_err(|e| ErrorKind::InputFileError {
-                    filename: name.clone(),
+                    filename: "<stdin>".to_owned(),
                     error: e,
                 })?;
-            input = Input::new(name.clone(), content, None);
+            tub = tub.source_string("<stdin>".to_owned(), content);
         } else {
-            name = path.to_string_lossy().into_owned();
             info!("Driver::add_input_file() reading from file");
-            let content = std::fs::read_to_string(path).map_err(|e| ErrorKind::InputFileError {
-                filename: name.to_owned(),
-                error: e,
-            })?;
-
-            // make sure path we store is rooted
-            let mut pathbuf = std::env::current_dir().unwrap();
-            pathbuf.push(path);
-            input = Input::new(name.clone(), content, Some(pathbuf));
+            tub = tub.source_file(path)?;
         }
-
-        info!("Driver::add_input_file() input = {:?}", &input);
-
-        let tu_id = self.tus.len() as u16;
-        input.tu_id = tu_id;
-
-        self.tus.insert(name, TranslationUnit {
-            input: Rc::new(input),
-            id: tu_id,
-            messages: Vec::new(),
-        });
+        self.tus.push(tub.build());
 
         Ok(())
     }
 
     /// Adds the given string to list of input translation units
     ///
-    /// `name` must be wrapped in angle brackets (<>) to help distinguish from
+    /// `alias` must be wrapped in angle brackets (<>) to help distinguish from
     /// file paths
-    pub fn add_input_str(&mut self, name: &str, content: &str) -> Result<()> {
-        if self.tus.len() >= u16::MAX as usize {
-            return Err(ErrorKind::TooManyTU.into());
-        }
-
+    pub fn add_input_str(&mut self, alias: &str, content: &str) {
         assert!(
-            name.starts_with("<") && name.ends_with(">"),
-            "filename must be enclosed in <> brackets"
+            alias.starts_with("<") && alias.ends_with(">"),
+            "alias must be enclosed in <> brackets"
         );
         info!(
-            "Driver::add_input_str() name = {:?} content = {:?}",
-            name, content
+            "Driver::add_input_str() alias = {:?} content = {:?}",
+            alias, content
         );
 
-        let mut input = Input::new(name.to_owned(), content.to_owned(), None);
-        let tu_id = self.tus.len() as u16;
-        input.tu_id = tu_id;
-
-        self.tus.insert(name.to_owned(), TranslationUnit {
-            input: Rc::new(input),
-            id: tu_id,
-            messages: Vec::new(),
-        });
-
-        Ok(())
+        self.tus.push(
+            TranslationUnit::builder(self.session.as_ref().unwrap())
+                .source_string(alias.to_owned(), content.to_owned())
+                .build(),
+        );
     }
 
     /// Perform all compilations
-    pub fn run_all(&mut self) -> Result<()> {
-        // TODO make ordered and remove clone
-        let names: Vec<String> = self.tus.keys().cloned().collect();
-        info!("Driver::run_all() all names = {:?}", &names);
-        for name in names {
-            info!("Driver::run_all() running name = {:?}", name);
-            let mut tuctx = self.run_one(&name)?;
-            let messages = tuctx.take_messages();
-
-            self.tus.get_mut(&name).unwrap().messages = messages;
+    pub fn run(&mut self) -> Result<()> {
+        info!(
+            "Driver::run_all() all names = {:?}",
+            self.tus
+                .iter()
+                .map(|tu| tu.input().name.as_str())
+                .collect::<Vec<&str>>()
+        );
+        for tu in &mut self.tus {
+            info!("Driver::run_all() running name = {:?}", &tu.input().name);
+            tu.run()?;
         }
         Ok(())
-    }
-
-    /// Perform compilation of single translation unit
-    pub fn run_one<'a>(&'a mut self, name: &str) -> Result<TUCtx<'a>> {
-        let mut ctx = TUCtx::from_driver(self, name);
-
-        for pass in &self.flags.passes {
-            debug!(
-                "Driver::run_one(name = {:?}) running pass {:?}",
-                name, &pass
-            );
-            pass.run(&mut ctx)?;
-        }
-
-        Ok(ctx)
     }
 
     /// Write messages to stderr
     pub fn report_messages(&self) {
-        for (_name, tu) in &self.tus {
-            for message in &tu.messages {
+        for tu in &self.tus {
+            for message in tu.messages() {
                 eprintln!("{}", message.enriched_message());
             }
         }
@@ -224,8 +162,8 @@ impl Driver {
     /// Return the number of messages of this severity across all translation units
     pub fn count_messages(&self, severity: Severity) -> usize {
         self.tus
-            .values()
-            .map(|tu| &tu.messages)
+            .iter()
+            .map(|tu| tu.messages())
             .flatten()
             .filter(|m| m.kind.get_severity() == severity)
             .count()
@@ -238,31 +176,16 @@ impl Driver {
     }
 }
 
-impl std::default::Default for Driver {
-    fn default() -> Self {
-        Driver {
-            tus: HashMap::new(),
-            flags: Flags::new(),
-            extra_files: HashMap::new(),
-        }
+pub fn generate_driver_clap<'a, 'b>(from_env: bool) -> clap::App<'a, 'b> {
+    let mut app = clap::App::new("denuocc").about("denuo c compiler").arg(
+        clap::Arg::with_name("FILES")
+            .required(from_env)
+            .multiple(true),
+    );
+    for arg in crate::core::flags::generate_clap_args() {
+        app = app.arg(arg);
     }
-}
-
-fn generate_clap<'a, 'b>(from_env: bool) -> clap::App<'a, 'b> {
-    clap::App::new("denuocc")
-        .about("denuo c compiler")
-        .arg(
-            clap::Arg::with_name("FILES")
-                .required(from_env)
-                .multiple(true),
-        )
-        .arg(
-            clap::Arg::with_name("pass")
-                .long("pass")
-                .multiple(true)
-                .value_delimiter(";")
-                .takes_value(true),
-        )
+    app
 }
 
 #[cfg(test)]
@@ -270,9 +193,10 @@ mod test {
     use super::*;
 
     #[test]
-    #[should_panic(expected = "input `missing` not found")]
-    pub fn test_driver_run_one_missing_input() {
+    pub fn test_driver_nonexistent_file() {
         let mut driver = Driver::new();
-        driver.run_one("missing").unwrap();
+        driver.parse_cli_args_from_str(&[] as &[&str]).unwrap();
+        let e = driver.add_input_file("nonexistent").unwrap_err();
+        assert!(if let crate::ErrorKind::InputFileError { .. } = e.kind() { true } else { false });
     }
 }

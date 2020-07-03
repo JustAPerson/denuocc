@@ -28,7 +28,6 @@ pub struct Input {
     pub path: Option<PathBuf>,
     pub included_from: Option<IncludedFrom>,
     pub depth: usize,
-    pub tu_id: u16,
 }
 
 impl Input {
@@ -40,7 +39,6 @@ impl Input {
             path,
             included_from: None,
             depth: 0,
-            tu_id: 0,
         }
     }
 }

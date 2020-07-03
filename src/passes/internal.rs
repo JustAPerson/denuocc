@@ -35,8 +35,11 @@ impl Pass for StatePrintDebug {
 }
 
 declare_pass!(
-    /// Save the current primary state for later access by
-    /// [`TUCtx::saved_states()`][TUCtx::saved_states]
+    /// Save the [`TUCtx`'s][tu] current primary state for later access by
+    /// [`TranslationUnit::saved_states()`][tucs]
+    ///
+    /// [tu]: crate::tu::TUCtx
+    /// [tucs]: crate::TranslationUnit::saved_states
     state_save => pub struct StateSave {
         pub name: String
     }

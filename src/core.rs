@@ -3,19 +3,10 @@
 // or http://opensource.org/licenses/MIT>, at your option.  This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! Denuo C Compiler
+//! Internal types used by every frontend or backend
 
-pub mod core;
-pub mod driver;
-#[macro_use]
-pub mod passes;
-pub mod session;
-pub mod tu;
-pub mod util;
+pub mod error;
+pub mod flags;
 
-pub mod front;
-
-pub use crate::core::{Error, ErrorKind, Result};
-pub use crate::driver::Driver;
-pub use crate::session::Session;
-pub use crate::tu::TranslationUnit;
+pub use error::{Error, ErrorKind, Result};
+pub use flags::Flags;
