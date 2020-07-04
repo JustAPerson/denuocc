@@ -5,36 +5,10 @@
 
 //! User visible messages about the input source code
 
+use crate::core::{self, Severity};
 use crate::front::c::location::Location;
 use crate::front::c::minor::Encoding;
 use crate::front::c::token::PPTokenKind;
-
-/// The calculated severity of a message
-///
-/// When generated, messages do not have a severity. This is assigned later
-/// after consulting the given compiler flags.
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub enum Severity {
-    Info,
-    Warning,
-    Error,
-}
-
-impl Severity {
-    pub fn as_str(&self) -> &'static str {
-        match *self {
-            Severity::Info => "info",
-            Severity::Warning => "warning",
-            Severity::Error => "error",
-        }
-    }
-}
-
-impl std::fmt::Display for Severity {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}", self.as_str())
-    }
-}
 
 /// Reusable element for [`MessageKind::ExpectedFound`][MessageKind::ExpectedFound]
 #[derive(Clone, Debug)]
@@ -237,7 +211,7 @@ impl MessageKind {
         }
     }
 
-    pub fn get_severity(&self) -> Severity {
+    pub fn severity(&self) -> Severity {
         use Severity::*;
         match self {
             _ => Error, // TODO message severities
@@ -258,7 +232,7 @@ impl Message {
         writeln!(
             output,
             "{}: {}",
-            self.kind.get_severity(),
+            self.kind.severity(),
             self.kind.get_headline()
         )?;
         writeln!(output, "  {}", self.location.fmt_begin())?;
@@ -285,5 +259,11 @@ impl std::fmt::Display for Message {
             self.location.get_outermost_macro_use_begin().fmt_begin()
         )?;
         write!(f, "{}", self.kind.get_headline())
+    }
+}
+
+impl core::Message for Message {
+    fn severity(&self) -> Option<Severity> {
+        Some(self.kind.severity())
     }
 }

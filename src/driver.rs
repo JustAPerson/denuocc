@@ -12,8 +12,7 @@ use std::rc::Rc;
 
 use log::{debug, error, info};
 
-use crate::core::{ErrorKind, Result};
-use crate::front::c::message::Severity;
+use crate::core::{ErrorKind, Result, Severity};
 use crate::session::{Session, SessionBuilder};
 use crate::tu::TranslationUnit;
 
@@ -165,7 +164,7 @@ impl Driver {
             .iter()
             .map(|tu| tu.messages())
             .flatten()
-            .filter(|m| m.kind.get_severity() == severity)
+            .filter(|m| m.kind.severity() == severity)
             .count()
     }
 

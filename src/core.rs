@@ -7,6 +7,8 @@
 
 pub mod error;
 pub mod flags;
+pub mod message;
 
 pub use error::{Error, ErrorKind, Result};
 pub use flags::Flags;
+pub use message::{Message, Severity};
