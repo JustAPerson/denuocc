@@ -12,8 +12,8 @@ use crate::declare_pass;
 use crate::front::c::lexer::lex;
 use crate::front::c::minor::{concatenate, convert_trigraphs, splice_lines, unescape};
 use crate::front::c::preprocessor::preprocess;
+use crate::front::c::tuctx::{TUCtx, TUState};
 use crate::passes::Pass;
-use crate::tu::{TUCtx, TUState};
 
 declare_pass!(
     /// Calls [`front::minor::convert_trigraphs`](convert_trigraphs)

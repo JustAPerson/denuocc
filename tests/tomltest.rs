@@ -12,8 +12,9 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use denuocc::front::c::token::{CharToken, PPToken};
-use denuocc::tu::TUState;
-use denuocc::{Session, TranslationUnit};
+use denuocc::front::c::tuctx::TUState;
+use denuocc::tu::CTranslationUnit;
+use denuocc::Session;
 use serde_derive::Deserialize;
 use test::{TestDesc, TestDescAndFn, TestFn, TestName, TestType};
 use toml::Spanned;
@@ -83,7 +84,7 @@ struct Case {
 }
 
 impl Case {
-    fn compile_case(&self, source: &str, suite: &Suite) -> TranslationUnit {
+    fn compile_case(&self, source: &str, suite: &Suite) -> CTranslationUnit {
         let mut args = Vec::new();
         for pass in &suite.passes {
             args.push(format!("--pass={}", pass))
@@ -96,7 +97,7 @@ impl Case {
             .add_extra_files(self.extra_files.clone().unwrap_or(HashMap::new()))
             .build();
 
-        let mut tu = TranslationUnit::builder(&session)
+        let mut tu = CTranslationUnit::builder(&session)
             .source_string("<case>", source)
             .build();
 

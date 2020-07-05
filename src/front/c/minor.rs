@@ -12,7 +12,7 @@ use log::{log_enabled, trace};
 use crate::front::c::location::Location;
 use crate::front::c::message::MessageKind;
 use crate::front::c::token::{CharToken, PPToken, PPTokenKind};
-use crate::tu::TUCtx;
+use crate::front::c::tuctx::TUCtx;
 
 /// Phase 1: Convert trigraphs
 pub fn convert_trigraphs<'a>(tokens: Vec<CharToken>) -> Vec<CharToken> {

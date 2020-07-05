@@ -6,8 +6,8 @@
 //! Passes for manipulating internal compiler state
 
 use crate::declare_pass;
+use crate::front::c::tuctx::{TUCtx, TUState};
 use crate::passes::Pass;
-use crate::tu::TUCtx;
 use crate::{ErrorKind, Result};
 
 declare_pass!(
@@ -38,8 +38,8 @@ declare_pass!(
     /// Save the [`TUCtx`'s][tu] current primary state for later access by
     /// [`TranslationUnit::saved_states()`][tucs]
     ///
-    /// [tu]: crate::tu::TUCtx
-    /// [tucs]: crate::TranslationUnit::saved_states
+    /// [tu]: crate::front::c::tuctx::TUCtx
+    /// [tucs]: crate::front::c::tu::TranslationUnit::saved_states
     state_save => pub struct StateSave {
         pub name: String
     }
@@ -104,7 +104,7 @@ impl Pass for StateReadInput {
         use crate::front::c::token::CharToken;
         let input = tuctx.original_input();
         let tokens = CharToken::from_input(input);
-        tuctx.set_state(crate::tu::TUState::CharTokens(tokens));
+        tuctx.set_state(TUState::CharTokens(tokens));
 
         Ok(())
     }

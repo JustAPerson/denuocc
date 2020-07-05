@@ -15,7 +15,7 @@ use crate::front::c::input::Input;
 use crate::front::c::location::{Location, Position};
 use crate::front::c::message::MessageKind;
 use crate::front::c::token::{CharToken, PPToken, PPTokenKind};
-use crate::tu::TUCtx;
+use crate::front::c::tuctx::TUCtx;
 
 static TOKEN_PATTERNS: &[(&'static str, PPTokenKind)] = &[
     ("^.", PPTokenKind::Other),
@@ -207,7 +207,7 @@ mod test {
             ])
             .unwrap()
             .build();
-        let mut tu = crate::TranslationUnit::builder(&session)
+        let mut tu = crate::tu::CTranslationUnit::builder(&session)
             .source_string("<unit-test>", input)
             .build();
         tu.run().unwrap();

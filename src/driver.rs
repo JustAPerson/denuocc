@@ -14,7 +14,7 @@ use log::{debug, error, info};
 
 use crate::core::{ErrorKind, Result, Severity};
 use crate::session::{Session, SessionBuilder};
-use crate::tu::TranslationUnit;
+use crate::tu::CTranslationUnit;
 
 /// Main interface for invoking denuocc
 #[derive(Clone, Debug)]
@@ -23,7 +23,7 @@ pub struct Driver {
     pub session: Option<Rc<Session>>,
 
     /// Inputs to compile and their results
-    pub tus: Vec<TranslationUnit>,
+    pub tus: Vec<CTranslationUnit>,
 }
 
 impl Driver {
@@ -82,7 +82,7 @@ impl Driver {
         let path = path.as_ref();
         info!("Driver::add_input_file() path = {:?}", path);
 
-        let mut tub = TranslationUnit::builder(self.session.as_ref().unwrap());
+        let mut tub = CTranslationUnit::builder(self.session.as_ref().unwrap());
         if path == stdin_path {
             info!("Driver::add_input_file() reading from stdin");
             use std::io::Read;
@@ -120,7 +120,7 @@ impl Driver {
         );
 
         self.tus.push(
-            TranslationUnit::builder(self.session.as_ref().unwrap())
+            CTranslationUnit::builder(self.session.as_ref().unwrap())
                 .source_string(alias.to_owned(), content.to_owned())
                 .build(),
         );

@@ -15,7 +15,7 @@ use crate::front::c::lexer::lex_one_token;
 use crate::front::c::location::{Location, MacroUse, Span};
 use crate::front::c::message::{ExpectedFoundPart, MessageKind};
 use crate::front::c::token::{PPToken, PPTokenKind};
-use crate::tu::TUCtx;
+use crate::front::c::tuctx::TUCtx;
 
 type Line = Vec<PPToken>;
 
