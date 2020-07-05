@@ -11,6 +11,7 @@ extern crate test;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use denuocc::front::c::message::Message;
 use denuocc::front::c::token::{CharToken, PPToken};
 use denuocc::front::c::tuctx::TUState;
 use denuocc::tu::CTranslationUnit;
@@ -108,11 +109,17 @@ impl Case {
     fn run_input(&self, suite: &Suite) -> TUState {
         let tu = self.compile_case(self.input.get_mut(), suite);
         let state = tu.saved_states("final")[0].clone();
-        let messages = tu
-            .messages()
-            .iter()
-            .map(|m| format!("{}", m))
-            .collect::<Vec<_>>();
+
+        fn recurse_messages(output: &mut Vec<String>, messages: &[Message]) {
+            for message in messages {
+                output.push(format!("{}", message));
+                if let Some(children) = &message.children {
+                    recurse_messages(output, children);
+                }
+            }
+        }
+        let mut messages = Vec::new();
+        recurse_messages(&mut messages, tu.messages());
 
         self.print_result(suite, &state);
         if let Some(ref expected_messages) = self.messages {

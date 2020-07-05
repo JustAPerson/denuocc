@@ -56,7 +56,9 @@ pub enum MessageKind {
     },
     Phase4MacroRedefinitionDifferent {
         name: String,
-        original: Location,
+    },
+    Phase4MacroFirstDefined {
+        name: String,
     },
     Phase4UndefineInvalidMacro {
         // TODO: Should be a very pedantic warning disabled by default
@@ -64,7 +66,9 @@ pub enum MessageKind {
     },
     Phase4UnclosedMacroInvocation {
         name: String,
-        open: Location,
+    },
+    Phase4MacroInvocationOpening {
+        name: String,
     },
     Phase4RepeatedMacroParameter {
         parameter: String,
@@ -145,17 +149,17 @@ impl MessageKind {
                 },
                 found
             ),
-            Phase4MacroRedefinitionDifferent { name, original } => format!(
-                "macro `{}` was originally defined differently here: {}",
-                name,
-                original.fmt_begin(),
-            ),
+            Phase4MacroRedefinitionDifferent { name } => {
+                format!("macro `{}` redefined differently", name,)
+            },
+            Phase4MacroFirstDefined { name } => format!("macro `{}` first defined here", name),
             Phase4UndefineInvalidMacro { name } => format!("macro `{}` does not exist", name),
-            Phase4UnclosedMacroInvocation { name, open } => format!(
-                "expected `)` to end invocation of macro `{}` which opened at: {}",
-                name,
-                open.fmt_begin()
-            ),
+            Phase4UnclosedMacroInvocation { name } => {
+                format!("expected `)` to end invocation of macro `{}`", name,)
+            },
+            Phase4MacroInvocationOpening { name } => {
+                format!("macro `{}` invocation opened here", name)
+            },
             Phase4RepeatedMacroParameter { parameter } => {
                 format!("macro parameter `{}` repeated", parameter)
             },
@@ -224,6 +228,7 @@ impl MessageKind {
 pub struct Message {
     pub kind: MessageKind,
     pub location: Location,
+    pub children: Option<Box<[Message]>>,
 }
 
 impl Message {
@@ -265,5 +270,15 @@ impl std::fmt::Display for Message {
 impl core::Message for Message {
     fn severity(&self) -> Option<Severity> {
         Some(self.kind.severity())
+    }
+}
+
+impl std::convert::From<(Location, MessageKind)> for Message {
+    fn from(pair: (Location, MessageKind)) -> Self {
+        Message {
+            kind: pair.1,
+            location: pair.0,
+            children: None,
+        }
     }
 }

@@ -7,7 +7,7 @@
 
 use std::rc::Rc;
 
-use log::debug;
+use log::{debug, info};
 
 use crate::core::{ErrorKind, Result};
 use crate::front::c::input::{IncludedFrom, Input};
@@ -139,11 +139,36 @@ impl<'a> TUCtx<'a> {
     }
 
     /// Emit an error to this translation unit's list
-    pub fn emit_message(&mut self, location: impl Into<Location>, kind: MessageKind) {
+    pub fn emit_message(&mut self, location: Location, kind: MessageKind) {
         self.tu.messages.push(Message {
             location: location.into(),
             kind,
+            children: None,
         });
+    }
+
+    pub fn emit_message_with_children(
+        &mut self,
+        location: Location,
+        kind: MessageKind,
+        children: Vec<impl Into<Message>>,
+    ) {
+        let children = children
+            .into_iter()
+            .map(|p| p.into())
+            .collect::<Vec<_>>()
+            .into_boxed_slice();
+        info!(
+            "TUCtx::emit_message_with_children() kind {:?} location {} children {:?}",
+            &kind,
+            location.fmt_begin(),
+            &children
+        );
+        self.tu.messages.push(Message {
+            location,
+            kind,
+            children: Some(children),
+        })
     }
 
     /// Search for a file and include it in this translation unit's context

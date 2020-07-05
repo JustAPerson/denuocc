@@ -122,6 +122,16 @@ messages = [
   "<case>:4:0: concatenating `a` and `\"2\"` does not result in a valid preprocessor token",
 ]
 
+[[suites.phase4.cases]]
+input = '''
+#define FUNC(a) a
+FUNC(3
+'''
+messages = [
+  "<case>:2:7: expected `)` to end invocation of macro `FUNC`",
+  "<case>:2:4: macro `FUNC` invocation opened here",
+]
+
 ################################################################################
 # Test that redefinitions must be equal
 ################################################################################
@@ -134,7 +144,8 @@ input = """
 #define test different
 """
 messages = [
-  "<case>:4:8: macro `test` was originally defined differently here: <case>:1:8"
+  "<case>:4:8: macro `test` redefined differently",
+  "<case>:1:8: macro `test` first defined here",
 ]
 
 ################################################################################
@@ -436,10 +447,14 @@ input = '''
 #define FUNC_LIKE(b) ( b ) // different parameter spelling
 '''
 messages = [
-  "<case>:3:8: macro `OBJ_LIKE` was originally defined differently here: <case>:1:8",
-  "<case>:4:8: macro `OBJ_LIKE` was originally defined differently here: <case>:1:8",
-  "<case>:5:8: macro `FUNC_LIKE` was originally defined differently here: <case>:2:8",
-  "<case>:6:8: macro `FUNC_LIKE` was originally defined differently here: <case>:2:8",
+  "<case>:3:8: macro `OBJ_LIKE` redefined differently",
+  "<case>:1:8: macro `OBJ_LIKE` first defined here",
+  "<case>:4:8: macro `OBJ_LIKE` redefined differently",
+  "<case>:1:8: macro `OBJ_LIKE` first defined here",
+  "<case>:5:8: macro `FUNC_LIKE` redefined differently",
+  "<case>:2:8: macro `FUNC_LIKE` first defined here",
+  "<case>:6:8: macro `FUNC_LIKE` redefined differently",
+  "<case>:2:8: macro `FUNC_LIKE` first defined here",
 ]
 
 [[suites.phase4.cases]]

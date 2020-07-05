@@ -1101,6 +1101,7 @@ impl<'tu, 'drv, 'def> Expander<'tu, 'drv, 'def> {
         defines: &'def mut HashMap<String, Rc<MacroDef>>,
         directives: Vec<Directive>,
     ) -> Self {
+        trace!("Expander::from_directives() directives = {:?}", &directives);
         Self {
             tuctx,
             defines,
@@ -1165,12 +1166,13 @@ impl<'tu, 'drv, 'def> Expander<'tu, 'drv, 'def> {
 
         if let Some(original) = self.defines.get(&name) {
             if !original.equivalent(&macrodef) {
-                self.tuctx.emit_message(
+                self.tuctx.emit_message_with_children(
                     macrodef.location().clone(),
-                    MessageKind::Phase4MacroRedefinitionDifferent {
-                        name: name,
-                        original: original.location().clone(),
-                    },
+                    MessageKind::Phase4MacroRedefinitionDifferent { name: name.clone() },
+                    vec![(
+                        original.location().clone(),
+                        MessageKind::Phase4MacroFirstDefined { name },
+                    )],
                 )
             }
         } else {
@@ -1227,11 +1229,14 @@ impl<'tu, 'drv, 'def> Expander<'tu, 'drv, 'def> {
     }
 
     /// Parse arguments to a function-like macro
+    ///
+    /// Returns `None` if the argument list could not be parsed due to
+    /// unexpected EOF
     fn parse_arguments(
         &mut self,
         func: &MacroFunction,
         open: &Location,
-    ) -> HashMap<String, Vec<PPToken>> {
+    ) -> Option<HashMap<String, Vec<PPToken>>> {
         trace!(
             "Expander::parse_arguments(func: {:?}, open: {:?})",
             func,
@@ -1280,14 +1285,20 @@ impl<'tu, 'drv, 'def> Expander<'tu, 'drv, 'def> {
                 self.rescan.push(token);
                 break;
             } else if token.kind == PPTokenKind::EndOfFile {
-                self.tuctx.emit_message(
+                // error
+                self.tuctx.emit_message_with_children(
                     token.location,
                     MessageKind::Phase4UnclosedMacroInvocation {
                         name: func.name.clone(),
-                        open: open.clone(),
                     },
+                    vec![(
+                        open.clone(),
+                        MessageKind::Phase4MacroInvocationOpening {
+                            name: func.name.clone(),
+                        },
+                    )],
                 );
-                return HashMap::new();
+                return None;
             } else {
                 current_arg.push(token);
             }
@@ -1335,7 +1346,7 @@ impl<'tu, 'drv, 'def> Expander<'tu, 'drv, 'def> {
         }
 
         trace!("Expander::parse_arguments() parameters={:?}", &parameters);
-        parameters
+        Some(parameters)
     }
 
     /// Perform macro replacement
@@ -1570,7 +1581,13 @@ impl<'tu, 'drv, 'def> Expander<'tu, 'drv, 'def> {
                 if let Some(next) = next {
                     // next is guaranteed to be non-whitespace
                     if next.as_str() == "(" {
-                        let mut arguments = self.parse_arguments(func, &next.location);
+                        let arguments = self.parse_arguments(func, &next.location);
+                        if arguments.is_none() {
+                            // None means unexpected EOF, so doesn't matter what we do
+                            // error is already emitted
+                            return;
+                        }
+                        let mut arguments = arguments.unwrap();
                         let closing_paren = self.rescan.pop().unwrap();
                         debug_assert_eq!(closing_paren.kind, PPTokenKind::Punctuator);
                         debug_assert_eq!(closing_paren.value, ")");
@@ -1654,7 +1671,13 @@ impl<'tu, 'drv, 'def> Expander<'tu, 'drv, 'def> {
 ///
 /// This involves file inclusion, conditional inclusion, and macro expansion.
 pub fn preprocess(tuctx: &mut TUCtx, tokens: Vec<PPToken>) -> Vec<PPToken> {
+    if tokens.is_empty() {
+        return Vec::new();
+    }
+    let eof = tokens.last().unwrap().clone();
+
     let lines = parse_lines(tokens);
+    trace!("preprocess() lines {:?}", &lines);
 
     // Here we split processing into two stages. This allows a simple
     // implementation accommodating some of the more unintuitive uses of macros.
@@ -1678,7 +1701,22 @@ pub fn preprocess(tuctx: &mut TUCtx, tokens: Vec<PPToken>) -> Vec<PPToken> {
     // directives as well as evaluate macro definitions and undefinitions, so we
     // wish to ignore the resulting map of definitions. They will only be used
     // when evaluating macros in #if-like or #include directives
-    let directives = process_include_directives(tuctx, lines, &mut HashMap::new());
+    let mut directives = process_include_directives(tuctx, lines, &mut HashMap::new());
+
+    // Ensure the last thing Expander::from_directives().expand() sees is an EOF token,
+    // which is necessary to know that there is absolutely nothing left to
+    // complete an unclosed macro invocation
+    //
+    // easiest to fix this up here rather than changing the logic of
+    // collect_lines_until_directive() which must also accommodate EOFs from
+    // #included files
+    if let Some(Directive::Text(tokens)) = directives.last_mut() {
+        tokens.push(eof);
+    } else {
+        directives.push(Directive::Text(vec![eof]));
+    }
+
+    trace!("preprocess() directives {:?}", &directives);
 
     // Now that we have the the entire text of input, we will expand macros
     let mut defines = HashMap::new();
