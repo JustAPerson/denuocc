@@ -28,6 +28,15 @@ pub enum Severity {
     /// Compilation can succeed with a warning, but it should be displayed to
     /// the user
     Warning,
+
+    /// Additional information associated with another [`Message`][m]
+    ///
+    /// An `Info` message must be a child of either an [`Error`][e] or [`Warning`][w]
+    ///
+    /// [m]: Message
+    /// [e]: Severity::Error
+    /// [w]: Severity::Warning
+    Info,
 }
 
 impl Severity {
@@ -35,6 +44,7 @@ impl Severity {
         match *self {
             Severity::Warning => "warning",
             Severity::Error => "error",
+            Severity::Info => "info",
         }
     }
 }

@@ -181,7 +181,7 @@ pub fn generate_driver_clap<'a, 'b>(from_env: bool) -> clap::App<'a, 'b> {
             .required(from_env)
             .multiple(true),
     );
-    for arg in crate::core::flags::generate_clap_args() {
+    for arg in crate::core::generate_clap_args() {
         app = app.arg(arg);
     }
     app

@@ -216,9 +216,10 @@ impl MessageKind {
     }
 
     pub fn severity(&self) -> Severity {
-        use Severity::*;
+        use MessageKind::*;
         match self {
-            _ => Error, // TODO message severities
+            Phase4MacroInvocationOpening { .. } | Phase4MacroFirstDefined { .. } => Severity::Info,
+            _ => Severity::Error, // TODO message severities
         }
     }
 }

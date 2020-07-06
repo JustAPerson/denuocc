@@ -14,7 +14,7 @@ use crate::front::c::input::Input;
 
 fn generate_session_clap<'a, 'b>() -> clap::App<'a, 'b> {
     let mut app = clap::App::new("denuocc").about("denuo c compiler");
-    for arg in crate::core::flags::generate_clap_args() {
+    for arg in crate::core::generate_clap_args() {
         app = app.arg(arg);
     }
     app

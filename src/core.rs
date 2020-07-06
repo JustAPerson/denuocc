@@ -5,10 +5,10 @@
 
 //! Internal types used by every frontend or backend
 
-pub mod error;
-pub mod flags;
-pub mod message;
+mod error;
+mod flags;
+mod message;
 
 pub use error::{Error, ErrorKind, Result};
-pub use flags::Flags;
+pub use flags::{generate_clap_args, Flags};
 pub use message::{Message, Severity};
