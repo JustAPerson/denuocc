@@ -41,7 +41,7 @@ fn ice_hook(p: &std::panic::PanicInfo) {
     eprintln!("");
     eprintln!("{:?}", backtrace::Backtrace::new());
     eprintln!("");
-    eprintln!("please file a bug report");
+    eprintln!("please file a bug report: https://github.com/JustAPerson/denuocc/issues/new");
 
     // Allow unwinding to occur (rather than exiting here) so that in the future we clean
     // up any kind of file system state, perhaps some cache mechanism
