@@ -8,8 +8,12 @@
 //! A token is the minimum atomic unit under consideration during a particular
 //! phase of compilation.
 
-pub mod char_token;
-pub mod preprocessor_token;
+mod char_token;
+mod origin;
+mod preprocessor_token;
+mod text;
 
 pub use self::char_token::CharToken;
+pub use self::origin::{MacroInvocation, MacroResult, TokenOrigin};
 pub use self::preprocessor_token::{PPToken, PPTokenKind};
+pub use self::text::{TextPosition, TextPositionResolved, TextSpan};

@@ -5,53 +5,38 @@
 
 //! Tokens encompassing a single character
 
-use std::rc::Rc;
-
 use crate::front::c::input::Input;
-use crate::front::c::location::{Location, Position};
+use crate::front::c::token::{TextPosition, TextSpan};
 
 /// A very simple token used in phases 1-3
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct CharToken {
     pub value: char,
-    pub loc: Location,
+    pub span: TextSpan,
 }
 
 impl CharToken {
-    /// Converts the given input into a list of [`CharTokens`](CharToken).
-    pub fn from_input(input: &Rc<Input>) -> Vec<CharToken> {
-        let mut output = Vec::new();
+    pub fn from_input(input: &Input) -> Vec<CharToken> {
+        Self::from_str(input.id, &input.content)
+    }
 
-        let mut position = Position {
-            absolute: 0,
-            line: 1,
-            column: 0,
-        };
+    pub fn from_str(input: u32, content: &str) -> Vec<CharToken> {
+        assert!((content.len() as u32) < u32::MAX);
 
-        for c in input.content.chars() {
-            output.push(CharToken {
+        content
+            .chars()
+            .enumerate()
+            .map(|(i, c)| CharToken {
                 value: c,
-                loc: Location {
-                    input: Rc::clone(input),
-                    begin: position,
+                span: TextSpan {
+                    pos: TextPosition {
+                        input,
+                        absolute: i as u32,
+                    },
                     len: 1,
-                    macro_use: None,
-                }
-                .into(),
-            });
-
-            // suffices for the other two counters
-            position.absolute = position.absolute.checked_add(1).unwrap();
-
-            position.column += 1;
-
-            if c == '\n' {
-                position.line += 1;
-                position.column = 0;
-            }
-        }
-
-        return output;
+                },
+            })
+            .collect()
     }
 
     pub fn is_whitespace(&self) -> bool {
@@ -120,46 +105,22 @@ mod test {
 
     #[test]
     fn test_chartokens_from_str() {
-        let input = Rc::new(Input::new(
-            "<unit-test>".to_owned(),
-            "abc\nd\ne".to_owned(),
-            None,
-        ));
+        let input = Input::new("<unit-test>".to_owned(), "abc\nd\ne".to_owned(), None);
         let tokens = CharToken::from_input(&input);
 
         assert_eq!(tokens[0].value, 'a');
-        assert_eq!(tokens[0].loc.begin.absolute, 0);
-        assert_eq!(tokens[0].loc.begin.line, 1);
-        assert_eq!(tokens[0].loc.begin.column, 0);
-
+        assert_eq!(tokens[0].span.pos.absolute, 0);
         assert_eq!(tokens[1].value, 'b');
-        assert_eq!(tokens[1].loc.begin.absolute, 1);
-        assert_eq!(tokens[1].loc.begin.line, 1);
-        assert_eq!(tokens[1].loc.begin.column, 1);
-
+        assert_eq!(tokens[1].span.pos.absolute, 1);
         assert_eq!(tokens[2].value, 'c');
-        assert_eq!(tokens[2].loc.begin.absolute, 2);
-        assert_eq!(tokens[2].loc.begin.line, 1);
-        assert_eq!(tokens[2].loc.begin.column, 2);
-
+        assert_eq!(tokens[2].span.pos.absolute, 2);
         assert_eq!(tokens[3].value, '\n');
-        assert_eq!(tokens[3].loc.begin.absolute, 3);
-        assert_eq!(tokens[3].loc.begin.line, 1);
-        assert_eq!(tokens[3].loc.begin.column, 3);
-
+        assert_eq!(tokens[3].span.pos.absolute, 3);
         assert_eq!(tokens[4].value, 'd');
-        assert_eq!(tokens[4].loc.begin.absolute, 4);
-        assert_eq!(tokens[4].loc.begin.line, 2);
-        assert_eq!(tokens[4].loc.begin.column, 0);
-
+        assert_eq!(tokens[4].span.pos.absolute, 4);
         assert_eq!(tokens[5].value, '\n');
-        assert_eq!(tokens[5].loc.begin.absolute, 5);
-        assert_eq!(tokens[5].loc.begin.line, 2);
-        assert_eq!(tokens[5].loc.begin.column, 1);
-
+        assert_eq!(tokens[5].span.pos.absolute, 5);
         assert_eq!(tokens[6].value, 'e');
-        assert_eq!(tokens[6].loc.begin.absolute, 6);
-        assert_eq!(tokens[6].loc.begin.line, 3);
-        assert_eq!(tokens[6].loc.begin.column, 0);
+        assert_eq!(tokens[6].span.pos.absolute, 6);
     }
 }

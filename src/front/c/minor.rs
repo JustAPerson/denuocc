@@ -9,9 +9,8 @@ use std::convert::TryFrom;
 
 use log::{log_enabled, trace};
 
-use crate::front::c::location::Location;
 use crate::front::c::message::MessageKind;
-use crate::front::c::token::{CharToken, PPToken, PPTokenKind};
+use crate::front::c::token::{CharToken, PPToken, PPTokenKind, TokenOrigin};
 use crate::front::c::tuctx::TUCtx;
 
 /// Phase 1: Convert trigraphs
@@ -41,9 +40,9 @@ pub fn convert_trigraphs<'a>(tokens: Vec<CharToken>) -> Vec<CharToken> {
 
         if first.value == '?' && second.value == '?' {
             if let Some((_, to)) = REPLACEMENTS.iter().find(|(from, _)| *from == third.value) {
-                let mut loc = first.loc.clone();
-                loc.len = 3;
-                output.push(CharToken { value: *to, loc });
+                let mut span = first.span;
+                span.len = 3;
+                output.push(CharToken { value: *to, span });
                 iter.next();
                 iter.next();
                 continue;
@@ -88,10 +87,7 @@ pub fn splice_lines(tuctx: &mut TUCtx, input: Vec<CharToken>) -> Vec<CharToken> 
 
             // are these the last two characters of input?
             if iter.as_slice().len() == 0 {
-                tuctx.emit_message(
-                    first.loc.clone(),
-                    MessageKind::Phase1FileEndingWithBackslash,
-                );
+                tuctx.emit_message(first.span, MessageKind::Phase1FileEndingWithBackslash);
             }
         } else {
             output.push(first);
@@ -100,7 +96,7 @@ pub fn splice_lines(tuctx: &mut TUCtx, input: Vec<CharToken>) -> Vec<CharToken> 
 
     if let Some(last) = iter.next() {
         if last.value == '\\' {
-            tuctx.emit_message(last.loc, MessageKind::Phase1FileEndingWithBackslash);
+            tuctx.emit_message(last.span, MessageKind::Phase1FileEndingWithBackslash);
         } else {
             output.push(last);
         }
@@ -252,7 +248,7 @@ fn parse_digits(
     tuctx: &mut TUCtx,
     iter: &mut std::iter::Peekable<std::str::Chars>,
     buffer: &mut String,
-    location: &Location,
+    origin: &TokenOrigin,
     encoding: Encoding,
     prefix: DigitEscapePrefix,
 ) -> Option<char> {
@@ -274,7 +270,7 @@ fn parse_digits(
 
     if buffer.is_empty() {
         // TODO FIXME error reporting within escape sequences
-        tuctx.emit_message(location.clone(), MessageKind::Phase5Empty);
+        tuctx.emit_message(origin.clone(), MessageKind::Phase5Empty);
         return None;
     }
 
@@ -285,7 +281,7 @@ fn parse_digits(
     {
         // detect an incomplete universal-character-name
         tuctx.emit_message(
-            location.clone(), // TODO FIXME error reporting within escape sequences
+            origin.clone(), // TODO FIXME error reporting within escape sequences
             MessageKind::Phase5Incomplete {
                 expected: prefix.exact_len().unwrap(),
                 found: buffer.len(),
@@ -301,7 +297,7 @@ fn parse_digits(
         // detect a hexadecimal-escape-sequence that doesn't fit.
         // size is measured in bytes; there are 2 hexadecimal digits in a byte
         tuctx.emit_message(
-            location.clone(), // TODO FIXME error reporting within escape sequences
+            origin.clone(), // TODO FIXME error reporting within escape sequences
             MessageKind::Phase5OutOfRange {
                 prefix: prefix.as_str(),
                 value: std::mem::take(buffer),
@@ -319,7 +315,7 @@ fn parse_digits(
         Some(value)
     } else {
         tuctx.emit_message(
-            location.clone(), // TODO FIXME error reporting within escape sequences
+            origin.clone(), // TODO FIXME error reporting within escape sequences
             MessageKind::Phase5Invalid {
                 prefix: prefix.as_str(),
                 value: std::mem::take(buffer),
@@ -336,7 +332,7 @@ fn parse_digits(
 fn translate_escapes(
     tuctx: &mut TUCtx,
     text: &str,
-    location: &Location,
+    origin: &TokenOrigin,
     encoding: Encoding,
 ) -> Option<String> {
     // avoid allocating until we encounter first escape code
@@ -382,8 +378,7 @@ fn translate_escapes(
         if let Some(prefix) = prefix {
             // the escape is made of some sequence of digits
             buffer.clear();
-            if let Some(c) = parse_digits(tuctx, &mut iter, &mut buffer, location, encoding, prefix)
-            {
+            if let Some(c) = parse_digits(tuctx, &mut iter, &mut buffer, origin, encoding, prefix) {
                 output.push(c);
             }
         } else {
@@ -404,13 +399,13 @@ fn translate_escapes(
                 Some(c) => {
                     // TODO FIXME error reporting within escape sequences
                     tuctx.emit_message(
-                        location.clone(),
+                        origin.clone(),
                         MessageKind::Phase5Unrecognized { escape: c },
                     );
                 },
                 None => {
                     // TODO FIXME error reporting within escape sequences
-                    tuctx.emit_message(location.clone(), MessageKind::Phase5Empty);
+                    tuctx.emit_message(origin.clone(), MessageKind::Phase5Empty);
                 },
             }
         }
@@ -439,8 +434,7 @@ fn unescape_token(tuctx: &mut TUCtx, token: &mut PPToken, delim: &str) {
     let end = token.value.as_bytes().len() - 1; // remove trailing delim
     let text = &token.value[start..end];
 
-    if let Some(value) = translate_escapes(tuctx, text, &token.location, Encoding::from_str(prefix))
-    {
+    if let Some(value) = translate_escapes(tuctx, text, &token.origin, Encoding::from_str(prefix)) {
         token.value = format!("{}{}{}{}", prefix, delim, value, delim);
     }
 }
@@ -492,7 +486,7 @@ pub fn concatenate(tuctx: &mut TUCtx, input: Vec<PPToken>) -> Vec<PPToken> {
                     string.push_str(get_string_content(&new_token.value, "\""));
                 } else {
                     tuctx.emit_message(
-                        new_token.location,
+                        new_token.origin,
                         MessageKind::Phase6IncompatibleEncoding {
                             previous: encoding,
                             current: new_encoding,

@@ -11,10 +11,10 @@ use lazy_static::lazy_static;
 use log::{debug, log_enabled, trace};
 use regex::{Regex, RegexSet};
 
+use super::token::TokenOrigin;
 use crate::front::c::input::Input;
-use crate::front::c::location::{Location, Position};
 use crate::front::c::message::MessageKind;
-use crate::front::c::token::{CharToken, PPToken, PPTokenKind};
+use crate::front::c::token::{CharToken, PPToken, PPTokenKind, TextPosition, TextSpan};
 use crate::front::c::tuctx::TUCtx;
 
 static TOKEN_PATTERNS: &[(&'static str, PPTokenKind)] = &[
@@ -113,6 +113,14 @@ pub fn lex_one_token(input: &str) -> (&str, PPTokenKind) {
     (slice, kind)
 }
 
+/// Test if all tokens resulting from lexer have the correct input
+fn test_correct_input(tokens: &[PPToken], input: u32) -> bool {
+    tokens.iter().all(|t| match t.origin {
+        TokenOrigin::Source(span) => span.pos.input == input,
+        TokenOrigin::Macro(..) => unreachable!(),
+    })
+}
+
 /// Categorize all tokens given by the input token sequence
 pub fn lex(tuctx: &mut TUCtx, tokens: Vec<CharToken>, input: Rc<Input>) -> Vec<PPToken> {
     let string = CharToken::to_string(&tokens);
@@ -137,7 +145,7 @@ pub fn lex(tuctx: &mut TUCtx, tokens: Vec<CharToken>, input: Rc<Input>) -> Vec<P
 
             // TODO move to phase7
             tuctx.emit_message(
-                first.loc.clone(),
+                first.span,
                 MessageKind::Phase3MissingTerminator { terminator: '\'' },
             );
 
@@ -148,39 +156,41 @@ pub fn lex(tuctx: &mut TUCtx, tokens: Vec<CharToken>, input: Rc<Input>) -> Vec<P
             }
         } else {
             // CharTokens may have length greater than one because of trigraphs
-            let mut location = first.loc.clone();
-            location.len = last.loc.begin.absolute + last.loc.len - first.loc.begin.absolute;
+            let mut span = first.span;
+            span.len = last.span.pos.absolute + last.span.len - first.span.pos.absolute;
 
             output.push(PPToken {
                 kind,
                 value: slice.to_owned(),
-                location: location,
+                origin: TokenOrigin::Source(span),
             })
         }
     }
 
+    debug_assert!(Rc::ptr_eq(&tuctx.inputs[input.id as usize], &input));
+
     output.push(PPToken {
         kind: PPTokenKind::EndOfFile,
         value: "".to_owned(),
-        location: Location {
-            input: input,
-            begin: match output.last().map(|t| &t.location) {
-                Some(last_loc) => {
-                    let mut eof_position = last_loc.begin.clone();
-                    eof_position.absolute += last_loc.len;
-                    eof_position.column += last_loc.len;
-                    eof_position
+        origin: TokenOrigin::Source(match output.last().map(|t| &t.origin) {
+            Some(TokenOrigin::Source(last_span)) => *last_span,
+            // Some(TokenOrigin::Source(last_span)) => {
+            //     let mut eof_span = *last_span;
+            //     eof_span.pos.absolute += last_span.len;
+            //     eof_span
+            // },
+            Some(TokenOrigin::Macro(..)) => unreachable!(),
+            None => TextSpan {
+                pos: TextPosition {
+                    input: input.id,
+                    absolute: 1,
                 },
-                None => Position {
-                    absolute: 0,
-                    line: 1,
-                    column: 0,
-                },
+                len: 0,
             },
-            len: 0,
-            macro_use: None,
-        },
+        }),
     });
+
+    debug_assert!(test_correct_input(&output, input.id));
 
     if log_enabled!(log::Level::Trace) {
         for (i, token) in output.iter().enumerate() {

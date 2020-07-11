@@ -6,9 +6,9 @@
 //! User visible messages about the input source code
 
 use crate::core::{self, Severity};
-use crate::front::c::location::Location;
 use crate::front::c::minor::Encoding;
-use crate::front::c::token::PPTokenKind;
+use crate::front::c::token::{PPTokenKind, TextPositionResolved, TokenOrigin};
+use crate::front::c::tuctx::TUCtx;
 
 /// Reusable element for [`MessageKind::ExpectedFound`][MessageKind::ExpectedFound]
 #[derive(Clone, Debug)]
@@ -224,47 +224,65 @@ impl MessageKind {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct Extra {
+    pub enriched: String,
+    pub position: TextPositionResolved,
+}
+
 /// A message about the source code being processed
 #[derive(Clone, Debug)]
 pub struct Message {
     pub kind: MessageKind,
-    pub location: Location,
+    pub origin: TokenOrigin,
     pub children: Option<Box<[Message]>>,
+    pub extra: Option<Extra>,
 }
 
 impl Message {
-    pub fn fmt_enriched_message(&self, output: &mut String) -> std::fmt::Result {
+    pub fn enrich(&mut self, tuctx: &TUCtx) {
         use std::fmt::Write;
+
+        let mut string = String::new();
+        let span = self.origin.macro_root_textspan(tuctx);
+        // let (name, lno, cno) = span.alias_line_column(tuctx);
+        let textpos = span.pos.resolve(tuctx);
+
         writeln!(
-            output,
+            &mut string,
             "{}: {}",
             self.kind.severity(),
             self.kind.get_headline()
-        )?;
-        writeln!(output, "  {}", self.location.fmt_begin())?;
-        writeln!(
-            output,
-            "  {}",
-            self.location.get_outermost_macro_use_begin().fmt_begin()
-        )?;
-        Ok(())
+        )
+        .unwrap();
+        writeln!(&mut string, "  {}", textpos).unwrap();
+        writeln!(&mut string, "  {}", span.text(tuctx)).unwrap();
+
+        self.extra = Some(Extra {
+            enriched: string,
+            position: textpos.own_string(),
+        });
+
+        if let Some(children) = &mut self.children {
+            children.iter_mut().for_each(|t| t.enrich(tuctx));
+        }
     }
 
-    pub fn enriched_message(&self) -> String {
-        let mut output = String::new();
-        self.fmt_enriched_message(&mut output).unwrap();
-        output
+    pub fn enriched_message(&self) -> &String {
+        self.extra
+            .as_ref()
+            .map(|t| &t.enriched)
+            .expect("This message has not been enriched")
     }
 }
 
 impl std::fmt::Display for Message {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(
-            f,
-            "{}: ",
-            self.location.get_outermost_macro_use_begin().fmt_begin()
-        )?;
-        write!(f, "{}", self.kind.get_headline())
+        if let Some(extra) = &self.extra {
+            write!(f, "{}: {}", extra.position, self.kind.get_headline())
+        } else {
+            write!(f, "{}", self.kind.get_headline())
+        }
     }
 }
 
@@ -274,12 +292,13 @@ impl core::Message for Message {
     }
 }
 
-impl std::convert::From<(Location, MessageKind)> for Message {
-    fn from(pair: (Location, MessageKind)) -> Self {
+impl std::convert::From<(TokenOrigin, MessageKind)> for Message {
+    fn from(pair: (TokenOrigin, MessageKind)) -> Self {
         Message {
             kind: pair.1,
-            location: pair.0,
+            origin: pair.0,
             children: None,
+            extra: None,
         }
     }
 }

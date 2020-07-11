@@ -12,9 +12,10 @@ use log::{debug, log_enabled, trace};
 
 use crate::front::c::input::IncludedFrom;
 use crate::front::c::lexer::lex_one_token;
-use crate::front::c::location::{Location, MacroUse, Span};
 use crate::front::c::message::{ExpectedFoundPart, MessageKind};
-use crate::front::c::token::{PPToken, PPTokenKind};
+use crate::front::c::token::{
+    MacroInvocation, MacroResult, PPToken, PPTokenKind, TextSpan, TokenOrigin,
+};
 use crate::front::c::tuctx::TUCtx;
 
 type Line = Vec<PPToken>;
@@ -29,7 +30,7 @@ type Line = Vec<PPToken>;
 pub struct MacroObject {
     name: String,
     replacement: Vec<PPToken>,
-    location: Location,
+    origin: TokenOrigin,
 }
 
 /// A definition of a function-like macro
@@ -46,7 +47,7 @@ pub struct MacroFunction {
     pub replacement: Vec<PPToken>,
     pub params: Vec<String>,
     pub vararg: bool,
-    pub location: Location,
+    pub origin: TokenOrigin,
 }
 
 /// A macro definition of either type
@@ -64,10 +65,17 @@ impl MacroDef {
         }
     }
 
-    pub fn location(&self) -> &Location {
+    pub fn origin(&self) -> &TokenOrigin {
         match self {
-            MacroDef::Object(object) => &object.location,
-            MacroDef::Function(func) => &func.location,
+            MacroDef::Object(object) => &object.origin,
+            MacroDef::Function(func) => &func.origin,
+        }
+    }
+
+    pub fn replacement(&self) -> &[PPToken] {
+        match self {
+            MacroDef::Object(object) => &object.replacement,
+            MacroDef::Function(func) => &func.replacement,
         }
     }
 
@@ -183,7 +191,8 @@ enum Directive {
     Text(Vec<PPToken>),
     Include {
         content: Vec<PPToken>,
-        span: Span,
+        span: TextSpan,
+        // span: TextSpan,
     },
 }
 
@@ -315,7 +324,7 @@ fn line_get_identifier_and_newline(
         .unwrap();
     if !identifier.is_ident() {
         tuctx.emit_message(
-            identifier.location,
+            identifier.origin,
             MessageKind::ExpectedFound {
                 expected: ExpectedFoundPart::Plain("identifier".to_owned()),
                 found: ExpectedFoundPart::PPToken(identifier.kind),
@@ -331,7 +340,7 @@ fn line_get_identifier_and_newline(
         .unwrap();
     if !newline_token.is_newline() {
         tuctx.emit_message(
-            newline_token.location,
+            newline_token.origin,
             MessageKind::ExpectedFound {
                 expected: ExpectedFoundPart::Plain("newline".to_owned()),
                 found: ExpectedFoundPart::PPToken(newline_token.kind),
@@ -350,7 +359,7 @@ fn parse_directive_define(tuctx: &mut TUCtx, tokens: Vec<PPToken>) -> Option<Dir
     let name_token = token_iter.next().unwrap();
     if !name_token.is_ident() {
         tuctx.emit_message(
-            name_token.location,
+            name_token.origin,
             MessageKind::ExpectedFound {
                 expected: ExpectedFoundPart::PPToken(PPTokenKind::Identifier),
                 found: ExpectedFoundPart::PPToken(name_token.kind),
@@ -388,7 +397,7 @@ fn parse_directive_define(tuctx: &mut TUCtx, tokens: Vec<PPToken>) -> Option<Dir
                         params.push(token.value);
                     } else {
                         tuctx.emit_message(
-                            token.location,
+                            token.origin,
                             MessageKind::Phase4RepeatedMacroParameter {
                                 parameter: token.value,
                             },
@@ -401,7 +410,7 @@ fn parse_directive_define(tuctx: &mut TUCtx, tokens: Vec<PPToken>) -> Option<Dir
                 },
                 (State::LParen, ..) | (State::Comma, ..) => {
                     tuctx.emit_message(
-                        token.location,
+                        token.origin,
                         MessageKind::ExpectedFound {
                             expected: ExpectedFoundPart::Plain("identifier or `...`".to_owned()),
                             found: ExpectedFoundPart::Plain(format!("`{}`", token.value)),
@@ -416,7 +425,7 @@ fn parse_directive_define(tuctx: &mut TUCtx, tokens: Vec<PPToken>) -> Option<Dir
                 },
                 (State::Ident, ..) => {
                     tuctx.emit_message(
-                        token.location,
+                        token.origin,
                         MessageKind::ExpectedFound {
                             expected: ExpectedFoundPart::Plain("`,`".to_owned()),
                             found: ExpectedFoundPart::Plain(format!("`{}`", token.value)),
@@ -431,7 +440,7 @@ fn parse_directive_define(tuctx: &mut TUCtx, tokens: Vec<PPToken>) -> Option<Dir
                 // is erroneous
                 (State::Vararg, ..) => {
                     tuctx.emit_message(
-                        token.location,
+                        token.origin,
                         MessageKind::ExpectedFound {
                             expected: ExpectedFoundPart::Plain("`)`".to_owned()),
                             found: ExpectedFoundPart::Plain(format!("`{}`", token.value)),
@@ -448,7 +457,7 @@ fn parse_directive_define(tuctx: &mut TUCtx, tokens: Vec<PPToken>) -> Option<Dir
         let replacement = token_iter.as_slice();
 
         // Ensure # is followed by a param
-        let mut singlehash: Option<&Location> = None;
+        let mut singlehash: Option<&TokenOrigin> = None;
         for token in replacement
             .iter()
             .filter(|t| !t.is_whitespace_not_newline())
@@ -460,7 +469,7 @@ fn parse_directive_define(tuctx: &mut TUCtx, tokens: Vec<PPToken>) -> Option<Dir
                 }
                 singlehash = None;
             } else if token.as_str() == "#" {
-                singlehash = Some(&token.location);
+                singlehash = Some(&token.origin);
             }
         }
 
@@ -479,7 +488,7 @@ fn parse_directive_define(tuctx: &mut TUCtx, tokens: Vec<PPToken>) -> Option<Dir
             }
 
             if let Some(token) = doublehash {
-                tuctx.emit_message(token.location.clone(), MessageKind::Phase4IllegalDoubleHash);
+                tuctx.emit_message(token.origin.clone(), MessageKind::Phase4IllegalDoubleHash);
                 return None;
             }
         }
@@ -490,14 +499,14 @@ fn parse_directive_define(tuctx: &mut TUCtx, tokens: Vec<PPToken>) -> Option<Dir
                 params,
                 vararg,
                 replacement,
-                location: name_token.location,
+                origin: name_token.origin,
             },
         ))))
     } else {
         Some(Directive::Define(Rc::new(MacroDef::Object(MacroObject {
             name: name_token.value,
             replacement: tokens_trim_whitespace(token_iter.as_slice()).to_vec(),
-            location: name_token.location,
+            origin: name_token.origin,
         }))))
     }
 }
@@ -510,7 +519,7 @@ fn parse_directive_undefine(tuctx: &mut TUCtx, tokens: Vec<PPToken>) -> Option<D
     let name_token = token_iter.next().unwrap();
     if !name_token.is_ident() {
         tuctx.emit_message(
-            name_token.location,
+            name_token.origin,
             MessageKind::ExpectedFound {
                 expected: ExpectedFoundPart::PPToken(PPTokenKind::Identifier),
                 found: ExpectedFoundPart::PPToken(name_token.kind),
@@ -526,7 +535,7 @@ fn parse_directive_undefine(tuctx: &mut TUCtx, tokens: Vec<PPToken>) -> Option<D
         return Some(Directive::Undefine(name_token));
     } else {
         tuctx.emit_message(
-            name_token.location,
+            name_token.origin,
             MessageKind::ExpectedFound {
                 expected: ExpectedFoundPart::Plain("newline".to_owned()),
                 found: ExpectedFoundPart::PPToken(name_token.kind),
@@ -559,7 +568,7 @@ fn parse_directive_if_generic(
         let line = line_iter.next().unwrap();
         if line_is_eof(&line) {
             tuctx.emit_message(
-                line[0].location.clone(),
+                line[0].origin.clone(),
                 MessageKind::ExpectedFound {
                     expected: ExpectedFoundPart::Directive("endif".to_owned()),
                     found: ExpectedFoundPart::PPToken(PPTokenKind::EndOfFile),
@@ -598,7 +607,7 @@ fn parse_directive_if_generic(
                 let should_be_newline = iter.next().unwrap();
                 if !should_be_newline.is_newline() {
                     tuctx.emit_message(
-                        should_be_newline.location,
+                        should_be_newline.origin,
                         MessageKind::ExpectedFound {
                             expected: ExpectedFoundPart::Plain("newline".to_owned()),
                             found: ExpectedFoundPart::PPToken(should_be_newline.kind),
@@ -615,7 +624,7 @@ fn parse_directive_if_generic(
             // invalid.
             (State::Else, Some(directive)) => {
                 tuctx.emit_message(
-                    line[0].location.clone(),
+                    line[0].origin.clone(),
                     MessageKind::ExpectedFound {
                         expected: ExpectedFoundPart::Directive("endif".to_owned()),
                         found: ExpectedFoundPart::Directive(directive.to_owned()),
@@ -629,7 +638,7 @@ fn parse_directive_if_generic(
     }
 
     output.push(Directive::IfSection {
-        condition: condition,
+        condition,
         main_body: main_body.unwrap(),
         elifs,
         else_body,
@@ -757,20 +766,21 @@ fn parse_include(tuctx: &mut TUCtx, line: Line) -> Option<Directive> {
 
     // get location of `#`
     line_skip_whitespace_until_newline(&mut line_iter);
-    let begin = line_iter.as_slice()[0].location.clone();
+    let begin = line_iter.as_slice()[0].origin.as_source_span().begin();
     line_skip_until_directive_content(&mut line_iter);
     line_skip_whitespace_until_newline(&mut line_iter);
 
     let content = line_iter.collect::<Vec<_>>();
     if content[0].is_newline() {
-        tuctx.emit_message(content[0].location.clone(), MessageKind::Phase4IncludeBegin);
+        tuctx.emit_message(content[0].origin.clone(), MessageKind::Phase4IncludeBegin);
         return None;
     }
-    let end = content[content.len() - 2].location.clone(); // do not include newline in span
+    // do not include newline in span
+    let end = content[content.len() - 2].origin.as_source_span().end();
 
     Some(Directive::Include {
         content,
-        span: Span::new(begin, end),
+        span: TextSpan::between(&begin, &end),
     })
 }
 
@@ -806,7 +816,7 @@ fn parse_directives(tuctx: &mut TUCtx, lines: Vec<Line>) -> Vec<Directive> {
             // complain about invalid directive
             Some(directive) => {
                 tuctx.emit_message(
-                    line_get_directive_name(&line).location.clone(),
+                    line_get_directive_name(&line).origin.clone(),
                     MessageKind::Phase4InvalidDirective {
                         directive: directive.to_owned(),
                     },
@@ -830,7 +840,7 @@ fn parse_directives(tuctx: &mut TUCtx, lines: Vec<Line>) -> Vec<Directive> {
 fn process_file_inclusion(
     tuctx: &mut TUCtx,
     mut tokens: Vec<PPToken>,
-    span: Span,
+    span: TextSpan,
     defines: &mut HashMap<String, Rc<MacroDef>>,
 ) -> Vec<Line> {
     use crate::front::c::lexer::lex;
@@ -856,7 +866,7 @@ fn process_file_inclusion(
             system = true;
             while let Some(token) = iter.next() {
                 if token.is_newline() {
-                    tuctx.emit_message(token.location, MessageKind::Phase4IncludeUnclosed);
+                    tuctx.emit_message(token.origin, MessageKind::Phase4IncludeUnclosed);
                     return Vec::new();
                 } else if token.kind == PPTokenKind::Punctuator && token.value == ">" {
                     break;
@@ -869,7 +879,7 @@ fn process_file_inclusion(
             file = first.value;
         },
         (_, _) => {
-            tuctx.emit_message(first.location, MessageKind::Phase4IncludeBegin);
+            tuctx.emit_message(first.origin, MessageKind::Phase4IncludeBegin);
             return Vec::new();
         },
     }
@@ -879,7 +889,7 @@ fn process_file_inclusion(
     let newline_token = iter.next().unwrap();
     if !newline_token.is_newline() {
         tuctx.emit_message(
-            newline_token.location,
+            newline_token.origin,
             MessageKind::Phase4IncludeExtra {
                 kind: newline_token.kind,
             },
@@ -887,16 +897,16 @@ fn process_file_inclusion(
         // unlike the other errors, this one is innocuous enough to continue past
     }
 
-    let input = first.location.input.clone();
+    let input = first.origin.macro_root_textspan(tuctx).input(tuctx).clone();
     if input.depth > 32 {
-        tuctx.emit_message(first.location, MessageKind::Phase4IncludeDepth);
+        tuctx.emit_message(first.origin, MessageKind::Phase4IncludeDepth);
         return Vec::new();
     }
 
     let included_input: Option<_> = tuctx.add_include(&file, system, IncludedFrom { input, span });
     if included_input.is_none() {
         tuctx.emit_message(
-            first.location,
+            first.origin,
             MessageKind::Phase4IncludeNotFound { desired_file: file },
         );
         return Vec::new();
@@ -1013,7 +1023,7 @@ fn escape(output: &mut String, token: &PPToken) {
     }
 }
 
-fn stringize(input: &[PPToken], location: Location) -> PPToken {
+fn stringize(input: &[PPToken], origin: TokenOrigin) -> PPToken {
     use PPTokenKind::*;
 
     let mut output = String::new();
@@ -1044,14 +1054,33 @@ fn stringize(input: &[PPToken], location: Location) -> PPToken {
     PPToken {
         kind: PPTokenKind::StringLiteral,
         value: output,
-        location,
+        origin, // TODO verify origin of stringizing macros
     }
 }
 
-fn use_locations_in_macro(tokens: &mut [PPToken], macro_use: MacroUse) {
-    let macro_use = Rc::new(macro_use);
+fn pre_update_macro_arg_tokens(tokens: &mut [PPToken], invocation: u32, mut start: u16) -> u16 {
     for token in tokens {
-        token.location.macro_use = Some(macro_use.clone());
+        token.origin = TokenOrigin::Macro(MacroResult::new_param(invocation, start));
+        start += 1;
+    }
+    start
+}
+
+fn pre_update_macro_body_tokens(tokens: &mut [PPToken], invocation: u32) {
+    for (index, token) in tokens.iter_mut().enumerate() {
+        token.origin = TokenOrigin::Macro(MacroResult::new_body(invocation, index as u16));
+    }
+}
+
+fn post_update_macro_result(tokens: &mut [PPToken], invocation: u32) {
+    for (index, token) in tokens.iter_mut().enumerate() {
+        match &mut token.origin {
+            TokenOrigin::Macro(mresult) if mresult.invocation_id() == invocation => {
+                mresult.update_out_index(index as u16)
+            },
+            TokenOrigin::Macro(..) => {},
+            TokenOrigin::Source(..) => unreachable!(),
+        }
     }
 }
 
@@ -1167,10 +1196,10 @@ impl<'tu, 'drv, 'def> Expander<'tu, 'drv, 'def> {
         if let Some(original) = self.defines.get(&name) {
             if !original.equivalent(&macrodef) {
                 self.tuctx.emit_message_with_children(
-                    macrodef.location().clone(),
+                    macrodef.origin().clone(),
                     MessageKind::Phase4MacroRedefinitionDifferent { name: name.clone() },
                     vec![(
-                        original.location().clone(),
+                        original.origin().clone(),
                         MessageKind::Phase4MacroFirstDefined { name },
                     )],
                 )
@@ -1185,7 +1214,7 @@ impl<'tu, 'drv, 'def> Expander<'tu, 'drv, 'def> {
         let macrodef = self.defines.remove(&name.value);
         if macrodef.is_none() {
             self.tuctx.emit_message(
-                name.location,
+                name.origin,
                 MessageKind::Phase4UndefineInvalidMacro { name: name.value },
             )
         }
@@ -1231,11 +1260,11 @@ impl<'tu, 'drv, 'def> Expander<'tu, 'drv, 'def> {
     /// Parse arguments to a function-like macro
     ///
     /// Returns `None` if the argument list could not be parsed due to
-    /// unexpected EOF
+    /// unexpected EOF or if there were an incorrect number of arguments
     fn parse_arguments(
         &mut self,
         func: &MacroFunction,
-        open: &Location,
+        open: &TokenOrigin,
     ) -> Option<HashMap<String, Vec<PPToken>>> {
         trace!(
             "Expander::parse_arguments(func: {:?}, open: {:?})",
@@ -1282,12 +1311,13 @@ impl<'tu, 'drv, 'def> Expander<'tu, 'drv, 'def> {
 
                 // we want caller to handle closing paren so it can find an
                 // accurate span of the entire macro invocation
+                // TODO do we still need to do ^^^
                 self.rescan.push(token);
                 break;
             } else if token.kind == PPTokenKind::EndOfFile {
                 // error
                 self.tuctx.emit_message_with_children(
-                    token.location,
+                    token.origin,
                     MessageKind::Phase4UnclosedMacroInvocation {
                         name: func.name.clone(),
                     },
@@ -1335,6 +1365,7 @@ impl<'tu, 'drv, 'def> Expander<'tu, 'drv, 'def> {
                     vararg: func.vararg,
                 },
             );
+            return None;
         }
 
         let mut parameters = HashMap::new();
@@ -1434,7 +1465,7 @@ impl<'tu, 'drv, 'def> Expander<'tu, 'drv, 'def> {
                 line_skip_whitespace_until_newline(&mut input);
                 let rhs = input.next().unwrap();
 
-                output.push(stringize(&parameters[rhs.as_str()], token.location.clone()));
+                output.push(stringize(&parameters[rhs.as_str()], token.origin.clone()));
             } else if token.as_str() == "##" {
                 // we reject macrodefs that begin or end with `##`, so there is
                 // always another token on either side, however it may be a
@@ -1485,7 +1516,7 @@ impl<'tu, 'drv, 'def> Expander<'tu, 'drv, 'def> {
                     output.push(PPToken {
                         value,
                         kind,
-                        location: token.location,
+                        origin: token.origin,
                     });
                     if let Some(mut additional_output) = additional_output {
                         output.append(&mut additional_output);
@@ -1495,7 +1526,7 @@ impl<'tu, 'drv, 'def> Expander<'tu, 'drv, 'def> {
                     // concatenated string, thus indicating the concatenation
                     // did not result in a (single) valid token.
                     self.tuctx.emit_message(
-                        token.location,
+                        token.origin,
                         MessageKind::Phase4BadConcatenation {
                             lhs: lhs.value,
                             rhs: rhs.value,
@@ -1523,16 +1554,16 @@ impl<'tu, 'drv, 'def> Expander<'tu, 'drv, 'def> {
             Some(MacroDef::Object(obj)) => {
                 trace!("Expander::expand_ident() {:?}", &obj);
 
+                let invocation: u32 = self.tuctx.add_macro_invocation(MacroInvocation {
+                    definition: Rc::clone(macrodef.unwrap()),
+                    name: token.clone(),
+                    arguments: HashMap::new(),
+                });
+
                 // copy replacement list and modify locations to show these
                 // tokens were used in a macro
                 let mut replacement = obj.replacement.clone();
-                use_locations_in_macro(
-                    &mut replacement,
-                    MacroUse {
-                        definition: macrodef.unwrap().clone(),
-                        span: Span::new(token.location.clone(), token.location.clone()),
-                    },
-                );
+                pre_update_macro_body_tokens(&mut replacement, invocation);
 
                 let mut replaced = self.replace(
                     false, // function-like?
@@ -1581,50 +1612,55 @@ impl<'tu, 'drv, 'def> Expander<'tu, 'drv, 'def> {
                 if let Some(next) = next {
                     // next is guaranteed to be non-whitespace
                     if next.as_str() == "(" {
-                        let arguments = self.parse_arguments(func, &next.location);
+                        let arguments = self.parse_arguments(func, &next.origin);
                         if arguments.is_none() {
-                            // None means unexpected EOF, so doesn't matter what we do
-                            // error is already emitted
+                            // None means an error (unexpected EOF or wrong number of arguments)
+
+                            // we want to continue parsing as much as possible,
+                            // so eat the closing parent if it exists. pop() will return None if
+                            // error was unexpected EOF
+                            let _closing_paren = self.rescan.pop();
                             return;
                         }
-                        let mut arguments = arguments.unwrap();
+
                         let closing_paren = self.rescan.pop().unwrap();
+                        let mut arguments = arguments.unwrap();
                         debug_assert_eq!(closing_paren.kind, PPTokenKind::Punctuator);
                         debug_assert_eq!(closing_paren.value, ")");
 
                         // update the parameters of the macro as coming from the
                         // correct argument of the invocation
-                        for argument in arguments.values_mut() {
-                            if argument.is_empty() {
-                                continue;
-                            }
-                            let span = Span::new(
-                                argument.first().unwrap().location.clone(),
-                                argument.last().unwrap().location.clone(),
+                        let invocation: u32 = self.tuctx.add_macro_invocation(MacroInvocation {
+                            definition: Rc::clone(&macrodef),
+                            name: token.clone(),
+                            arguments: arguments.clone(),
+                        });
+
+                        let mut in_index: u16 = 0;
+                        for param_name in &func.params {
+                            in_index = pre_update_macro_arg_tokens(
+                                arguments.get_mut(param_name).unwrap(),
+                                invocation,
+                                in_index,
                             );
-                            use_locations_in_macro(
-                                argument,
-                                MacroUse {
-                                    definition: macrodef.clone(),
-                                    span,
-                                },
+                        }
+                        if func.vararg {
+                            pre_update_macro_arg_tokens(
+                                arguments.get_mut("__VA_ARGS__").unwrap(),
+                                invocation,
+                                in_index,
                             );
                         }
 
                         // update location of the text of the macro as coming
                         // from the span of the entire macro invocation
                         let mut replacement = func.replacement.clone();
-                        use_locations_in_macro(
-                            &mut replacement,
-                            MacroUse {
-                                definition: macrodef.clone(),
-                                span: Span::new(token.location.clone(), closing_paren.location),
-                            },
-                        );
+                        pre_update_macro_body_tokens(&mut replacement, invocation);
 
                         let mut replaced = self.replace(true, replacement.into_iter(), arguments);
-
+                        post_update_macro_result(&mut replaced, invocation);
                         disable_macro_recursion(&mut replaced, &token);
+
                         self.rescan(replaced);
                     } else if next.kind == PPTokenKind::Identifier {
                         // this ident is not being used as a function macro, so output it

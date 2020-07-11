@@ -11,9 +11,8 @@ use log::{debug, info};
 
 use crate::core::{ErrorKind, Result};
 use crate::front::c::input::{IncludedFrom, Input};
-use crate::front::c::location::Location;
 use crate::front::c::message::{Message, MessageKind};
-use crate::front::c::token::{CharToken, PPToken};
+use crate::front::c::token::{CharToken, MacroInvocation, PPToken, TokenOrigin};
 use crate::front::c::tu::TranslationUnit;
 
 /// Translation Unit State
@@ -80,9 +79,10 @@ impl std::fmt::Display for TUState {
 /// Intermediate data kept while processing this translation unit
 #[derive(Debug)]
 pub struct TUCtx<'a> {
-    tu: &'a mut TranslationUnit,
-    inputs: Vec<Rc<Input>>,
-    state: Option<TUState>,
+    pub(super) tu: &'a mut TranslationUnit,
+    pub(super) inputs: Vec<Rc<Input>>,
+    pub(super) state: Option<TUState>,
+    pub(super) macro_invocations: Vec<MacroInvocation>,
 }
 
 impl<'a> TUCtx<'a> {
@@ -94,6 +94,7 @@ impl<'a> TUCtx<'a> {
             tu,
             inputs,
             state: None,
+            macro_invocations: Vec::new(),
         }
     }
 
@@ -139,36 +140,48 @@ impl<'a> TUCtx<'a> {
     }
 
     /// Emit an error to this translation unit's list
-    pub fn emit_message(&mut self, location: Location, kind: MessageKind) {
+    pub fn emit_message(&mut self, origin: impl Into<TokenOrigin>, kind: MessageKind) {
+        let origin = origin.into();
+        info!(
+            "TUCTx::emit_message() kind {:?} origin {:?}",
+            &kind, &origin
+        );
         self.tu.messages.push(Message {
-            location: location.into(),
             kind,
+            origin,
             children: None,
+            extra: None,
         });
     }
 
     pub fn emit_message_with_children(
         &mut self,
-        location: Location,
+        origin: impl Into<TokenOrigin>,
         kind: MessageKind,
         children: Vec<impl Into<Message>>,
     ) {
+        let origin = origin.into();
         let children = children
             .into_iter()
             .map(|p| p.into())
             .collect::<Vec<_>>()
             .into_boxed_slice();
         info!(
-            "TUCtx::emit_message_with_children() kind {:?} location {} children {:?}",
-            &kind,
-            location.fmt_begin(),
-            &children
+            "TUCtx::emit_message_with_children() kind {:?} origin {:?} children {:?}",
+            &kind, &origin, &children
         );
         self.tu.messages.push(Message {
-            location,
             kind,
+            origin,
             children: Some(children),
+            extra: None,
         })
+    }
+
+    pub fn add_macro_invocation(&mut self, invocation: MacroInvocation) -> u32 {
+        let id = self.macro_invocations.len();
+        self.macro_invocations.push(invocation);
+        id as u32
     }
 
     /// Search for a file and include it in this translation unit's context
@@ -192,6 +205,7 @@ impl<'a> TUCtx<'a> {
         if let Some(mut input) = input {
             input.depth = included_from.input.depth + 1;
             input.included_from = Some(included_from);
+            input.id = self.inputs.len() as u32;
             self.inputs.push(Rc::new(input));
             self.inputs.last() // always Some
         } else {
@@ -209,6 +223,14 @@ impl<'a> TUCtx<'a> {
             );
             pass.run(self)?;
         }
+        self.enrich_messages();
         Ok(())
+    }
+
+    fn enrich_messages(&mut self) {
+        // Gotta appease borrowck
+        let mut messages = std::mem::take(&mut self.tu.messages);
+        messages.iter_mut().for_each(|m| m.enrich(self));
+        self.tu.messages = messages;
     }
 }

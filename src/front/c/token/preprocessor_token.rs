@@ -5,7 +5,7 @@
 
 //! Tokens encompassing strings of text used during preprocessing
 
-use crate::front::c::location::Location;
+use crate::front::c::token::TokenOrigin;
 
 /// The different kinds of [`PPToken`]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -45,7 +45,7 @@ impl PPTokenKind {
 pub struct PPToken {
     pub kind: PPTokenKind,
     pub value: String,
-    pub location: Location,
+    pub origin: TokenOrigin,
 }
 
 impl PPToken {

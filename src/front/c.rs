@@ -7,7 +7,6 @@
 
 pub mod input;
 pub mod lexer;
-pub mod location;
 pub mod message;
 pub mod minor;
 pub mod preprocessor;

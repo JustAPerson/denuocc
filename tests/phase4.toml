@@ -128,7 +128,7 @@ input = '''
 FUNC(3
 '''
 messages = [
-  "<case>:2:7: expected `)` to end invocation of macro `FUNC`",
+  "<case>:2:6: expected `)` to end invocation of macro `FUNC`",
   "<case>:2:4: macro `FUNC` invocation opened here",
 ]
 
