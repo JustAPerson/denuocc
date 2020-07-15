@@ -46,7 +46,7 @@ output = '"Hello \"World\"!"'
 [[suites.phase5.cases]]
 input  = '"\"'
 messages = [
-  "<case>:1:0: expected character after escape sequence",
+  "<case>:1:1: expected character after escape sequence",
 ]
 
 [[suites.phase5.cases]]
@@ -59,11 +59,11 @@ input = '''
 "\U000"
 '''
 messages = [
-  '<case>:1:0: expected character after escape sequence',
-  '<case>:3:0: expected character after escape sequence',
-  '<case>:4:0: expected 4 digits after `\u`; found 1',
-  '<case>:5:0: expected character after escape sequence',
-  '<case>:6:0: expected 8 digits after `\U`; found 3',
+  '<case>:1:1: expected character after escape sequence',
+  '<case>:3:1: expected character after escape sequence',
+  '<case>:4:1: expected 4 digits after `\u`; found 1',
+  '<case>:5:1: expected character after escape sequence',
+  '<case>:6:1: expected 8 digits after `\U`; found 3',
 ]
 
 [[suites.phase5.cases]]
@@ -74,7 +74,7 @@ output = '" 0"'
 input  = '"a\qb"'
 output = '"ab"'
 messages = [
-  '<case>:1:0: `\q` is not a valid escape',
+  '<case>:1:1: `\q` is not a valid escape',
 ]
 
 [[suites.phase5.cases]]
@@ -93,11 +93,11 @@ L"\xffffffff"
 L"\x100000000"
 '''
 messages = [
-  '<case>:2:0: `\x100` exceeds range of type (unsigned char)',
-  '<case>:4:0: `\x100` exceeds range of type (unsigned char)',
-  '<case>:6:0: `\x10000` exceeds range of type (char16_t)',
-  '<case>:8:0: `\xffffffff` cannot be represented',
-  '<case>:9:0: `\x100000000` exceeds range of type (char32_t)',
-  '<case>:11:0: `\xffffffff` cannot be represented',
-  '<case>:12:0: `\x100000000` exceeds range of type (wchar_t)'
+  '<case>:2:1: `\x100` exceeds range of type (unsigned char)',
+  '<case>:4:1: `\x100` exceeds range of type (unsigned char)',
+  '<case>:6:1: `\x10000` exceeds range of type (char16_t)',
+  '<case>:8:1: `\xffffffff` cannot be represented',
+  '<case>:9:1: `\x100000000` exceeds range of type (char32_t)',
+  '<case>:11:1: `\xffffffff` cannot be represented',
+  '<case>:12:1: `\x100000000` exceeds range of type (wchar_t)'
 ]

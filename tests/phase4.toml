@@ -44,7 +44,7 @@ output = ""
 
 [[suites.phase4.cases]]
 input = "#define\n"
-messages = ["<case>:1:7: expected identifier token; found whitespace token"]
+messages = ["<case>:1:8: expected identifier token; found whitespace token"]
 
 [[suites.phase4.cases]]
 input = """
@@ -52,7 +52,7 @@ input = """
 test(a)
 """
 output = "test(a)"
-messages = ["<case>:1:15: expected `,`; found `b`"]
+messages = ["<case>:1:16: expected `,`; found `b`"]
 
 [[suites.phase4.cases]]
 input = """
@@ -60,17 +60,17 @@ input = """
 test(a)
 """
 output = "test(a)"
-messages = ["<case>:1:16: expected `)`; found `,`"]
+messages = ["<case>:1:17: expected `)`; found `,`"]
 
 [[suites.phase4.cases]]
 input = """
 #define test(a,)
 """
-messages = ["<case>:1:15: expected identifier or `...`; found `)`"]
+messages = ["<case>:1:16: expected identifier or `...`; found `)`"]
 
 [[suites.phase4.cases]]
 input = "#define macro(a, a) a"
-messages = ["<case>:1:17: macro parameter `a` repeated"]
+messages = ["<case>:1:18: macro parameter `a` repeated"]
 
 [[suites.phase4.cases]]
 input = """
@@ -78,8 +78,8 @@ input = """
 #define two(a) a ##
 """
 messages = [
-"<case>:1:15: a macro cannot begin nor end with `##`",
-"<case>:2:17: a macro cannot begin nor end with `##`",
+  "<case>:1:16: a macro cannot begin nor end with `##`",
+  "<case>:2:18: a macro cannot begin nor end with `##`",
 ]
 
 [[suites.phase4.cases]]
@@ -89,9 +89,9 @@ input = """
 #define three(a) # # a
 """
 messages = [
-  "<case>:1:15: the `#` operator must be followed by a macro parameter",
-  "<case>:2:15: the `#` operator must be followed by a macro parameter",
-  "<case>:3:17: the `#` operator must be followed by a macro parameter"
+  "<case>:1:16: the `#` operator must be followed by a macro parameter",
+  "<case>:2:16: the `#` operator must be followed by a macro parameter",
+  "<case>:3:18: the `#` operator must be followed by a macro parameter"
 ]
 
 [[suites.phase4.cases]]
@@ -119,7 +119,7 @@ onetwo
 one2
 """
 messages = [
-  "<case>:4:0: concatenating `a` and `\"2\"` does not result in a valid preprocessor token",
+  "<case>:4:1: concatenating `a` and `\"2\"` does not result in a valid preprocessor token",
 ]
 
 [[suites.phase4.cases]]
@@ -128,8 +128,8 @@ input = '''
 FUNC(3
 '''
 messages = [
-  "<case>:2:6: expected `)` to end invocation of macro `FUNC`",
-  "<case>:2:4: macro `FUNC` invocation opened here",
+  "<case>:2:7: expected `)` to end invocation of macro `FUNC`",
+  "<case>:2:5: macro `FUNC` invocation opened here",
 ]
 
 ################################################################################
@@ -144,8 +144,8 @@ input = """
 #define test different
 """
 messages = [
-  "<case>:4:8: macro `test` redefined differently",
-  "<case>:1:8: macro `test` first defined here",
+  "<case>:4:9: macro `test` redefined differently",
+  "<case>:1:9: macro `test` first defined here",
 ]
 
 ################################################################################
@@ -215,7 +215,7 @@ input = """
 add(1)
 """
 messages = [
-  "<case>:2:3: `add` expects exactly 2 arguments; found 1"
+  "<case>:2:4: `add` expects exactly 2 arguments; found 1"
 ]
 
 [[suites.phase4.cases]]
@@ -224,7 +224,7 @@ input = """
 add(1,2,3)
 """
 messages = [
-  "<case>:2:3: `add` expects exactly 2 arguments; found 3"
+  "<case>:2:4: `add` expects exactly 2 arguments; found 3"
 ]
 
 [[suites.phase4.cases]]
@@ -284,8 +284,8 @@ v(1, 2)
 """
 output = "0 1"
 messages = [
-  "<case>:2:1: `v` expects at least 2 arguments; found 1",
-  "<case>:3:1: `v` expects at least 2 arguments; found 1"
+  "<case>:2:2: `v` expects at least 2 arguments; found 1",
+  "<case>:3:2: `v` expects at least 2 arguments; found 1"
 ]
 
 [[suites.phase4.cases]]
@@ -312,19 +312,19 @@ output = "b a"
 input = """
 #undef 3
 """
-messages = ["<case>:1:7: expected identifier token; found number token"]
+messages = ["<case>:1:8: expected identifier token; found number token"]
 
 [[suites.phase4.cases]]
 input = """
 #undef 
 """
-messages = ["<case>:1:7: expected identifier token; found whitespace token"]
+messages = ["<case>:1:8: expected identifier token; found whitespace token"]
 
 [[suites.phase4.cases]]
 input = """
 #undef UNDEFINED
 """
-messages = ["<case>:1:7: macro `UNDEFINED` does not exist"]
+messages = ["<case>:1:8: macro `UNDEFINED` does not exist"]
 
 ################################################################################
 # test cases from the standard
@@ -447,14 +447,14 @@ input = '''
 #define FUNC_LIKE(b) ( b ) // different parameter spelling
 '''
 messages = [
-  "<case>:3:8: macro `OBJ_LIKE` redefined differently",
-  "<case>:1:8: macro `OBJ_LIKE` first defined here",
-  "<case>:4:8: macro `OBJ_LIKE` redefined differently",
-  "<case>:1:8: macro `OBJ_LIKE` first defined here",
-  "<case>:5:8: macro `FUNC_LIKE` redefined differently",
-  "<case>:2:8: macro `FUNC_LIKE` first defined here",
-  "<case>:6:8: macro `FUNC_LIKE` redefined differently",
-  "<case>:2:8: macro `FUNC_LIKE` first defined here",
+  "<case>:3:9: macro `OBJ_LIKE` redefined differently",
+  "<case>:1:9: macro `OBJ_LIKE` first defined here",
+  "<case>:4:9: macro `OBJ_LIKE` redefined differently",
+  "<case>:1:9: macro `OBJ_LIKE` first defined here",
+  "<case>:5:9: macro `FUNC_LIKE` redefined differently",
+  "<case>:2:9: macro `FUNC_LIKE` first defined here",
+  "<case>:6:9: macro `FUNC_LIKE` redefined differently",
+  "<case>:2:9: macro `FUNC_LIKE` first defined here",
 ]
 
 [[suites.phase4.cases]]
@@ -614,13 +614,13 @@ output = """
 [[suites.phase4.cases]]
 input = "#include"
 messages = [
-  '<case>:1:8: expected `<FILENAME>`, `"FILENAME"`, or a macro that expands to either of those'
+  '<case>:1:9: expected `<FILENAME>`, `"FILENAME"`, or a macro that expands to either of those'
 ]
 
 [[suites.phase4.cases]]
 input = "#include 3"
 messages = [
-  '<case>:1:9: expected `<FILENAME>`, `"FILENAME"`, or a macro that expands to either of those'
+  '<case>:1:10: expected `<FILENAME>`, `"FILENAME"`, or a macro that expands to either of those'
 ]
 
 [[suites.phase4.cases]]
@@ -629,7 +629,7 @@ input = """
 #include macro
 """
 messages = [
-  '<case>:2:9: expected `<FILENAME>`, `"FILENAME"`, or a macro that expands to either of those'
+  '<case>:2:10: expected `<FILENAME>`, `"FILENAME"`, or a macro that expands to either of those'
 ]
 
 [[suites.phase4.cases]]
@@ -670,20 +670,20 @@ extra_files.b = "#include <c>"
 extra_files.c = "#include <a>"
 input = "#include <a>"
 messages = [
-  "c:1:9: maximum nested include depth exceeded",
+  "c:1:10: maximum nested include depth exceeded",
 ]
 
 [[suites.phase4.cases]]
 input = '#include "a"'
 messages = [
-  "<case>:1:9: could not include `a`: file not found",
+  "<case>:1:10: could not include `a`: file not found",
 ]
 ignored = true # TODO NYI System #include paths
 
 [[suites.phase4.cases]]
 input = '#include <a>'
 messages = [
-  "<case>:1:9: could not include `a`: file not found",
+  "<case>:1:10: could not include `a`: file not found",
 ]
 ignored = true # TODO NYI System #include paths
 
@@ -695,7 +695,7 @@ ignored = true # TODO NYI System #include paths
 extra_files.invalid = "#define 3"
 input = "#include <invalid>"
 messages = [
-  "invalid:1:8: expected identifier token; found number token"
+  "invalid:1:9: expected identifier token; found number token"
 ]
 
 ################################################################################
@@ -782,8 +782,8 @@ input = """
 #endif
 """
 messages = [
-  "<case>:1:7: expected identifier; found number token",
-  "<case>:3:8: expected identifier; found number token"
+  "<case>:1:8: expected identifier; found number token",
+  "<case>:3:9: expected identifier; found number token"
 ]
 
 [[suites.phase4.cases]]
@@ -836,8 +836,8 @@ input = """
 #endif
 """
 messages = [
-  "<case>:1:12:",
-  "<case>:1:12:",
-  "<case>:1:12:",
+  "<case>:1:13:",
+  "<case>:1:13:",
+  "<case>:1:13:",
 ]
 ignored = true # TODO NYI

@@ -32,8 +32,8 @@ L"a" u8"b";
 u8"a" u"b";
 '''
 messages = [
-  "<case>:1:5: incompatible encoding when concatenating; previously `universal 16` but found `universal 32`",
-  "<case>:2:5: incompatible encoding when concatenating; previously `universal 32` but found `wide`",
-  "<case>:3:5: incompatible encoding when concatenating; previously `wide` but found `utf-8`",
-  "<case>:4:6: incompatible encoding when concatenating; previously `utf-8` but found `universal 16`"
+  "<case>:1:6: incompatible encoding when concatenating; previously `universal 16` but found `universal 32`",
+  "<case>:2:6: incompatible encoding when concatenating; previously `universal 32` but found `wide`",
+  "<case>:3:6: incompatible encoding when concatenating; previously `wide` but found `utf-8`",
+  "<case>:4:7: incompatible encoding when concatenating; previously `utf-8` but found `universal 16`"
 ]

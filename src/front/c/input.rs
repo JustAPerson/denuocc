@@ -57,18 +57,13 @@ impl Input {
 
     pub fn get_line_column(&self, absolute: u32) -> (u32, u32) {
         let len = self.newlines.len();
-        let (line, column) = match self.newlines.binary_search(&absolute) {
+        match self.newlines.binary_search(&absolute) {
             Ok(0) => (1, self.newlines[0] + 1),
             Ok(i) => (i as u32 + 1, self.newlines[i] - self.newlines[i - 1]),
             Err(0) => (1, absolute + 1),
             Err(i) if i < len => (i as u32 + 1, absolute - self.newlines[i - 1]),
             Err(_) => (len as u32 + 1, absolute - self.newlines.last().unwrap()),
-        };
-
-        // all existing test cases are written with the assumption that column
-        // number starts at zero. I got that convention from emacs, but seems
-        // most compilers do not use it. I'll be fixing this in the next commit.
-        (line, column - 1)
+        }
     }
 }
 

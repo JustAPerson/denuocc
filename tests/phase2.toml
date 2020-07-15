@@ -25,14 +25,14 @@ output = "ab"
 input  = "\\"
 output = ""
 messages = [
-  "<case>:1:0: file cannot end with a backslash",
+  "<case>:1:1: file cannot end with a backslash",
 ]
 
 [[suites.phase2.cases]]
 input  = "\\\n"
 output = ""
 messages = [
-  "<case>:1:0: file cannot end with a backslash",
+  "<case>:1:1: file cannot end with a backslash",
 ]
 
 # test that trigraphs can also splice lines
