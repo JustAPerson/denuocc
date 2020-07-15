@@ -137,6 +137,15 @@ pub enum TokenOrigin {
 }
 
 impl TokenOrigin {
+    /// Assumes that this is a [`Source`][TokenOrigin::Source] and returns the
+    /// [`TextSpan`][TextSpan], otherwise panics.
+    pub fn as_source(&self) -> &TextSpan {
+        match &self {
+            TokenOrigin::Source(span) => span,
+            TokenOrigin::Macro(_) => panic!(),
+        }
+    }
+
     // could potentially copy a similar method to PPToken
     pub fn macro_root_textspan<'a>(&'a self, tuctx: &'a TUCtx) -> &'a TextSpan {
         match &self {

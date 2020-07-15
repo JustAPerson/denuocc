@@ -8,13 +8,13 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::vec::IntoIter;
 
-use log::{debug, log_enabled, trace};
+use log::{debug, trace};
 
-use crate::front::c::input::IncludedFrom;
+use crate::front::c::input::{IncludedFrom, Input};
 use crate::front::c::lexer::lex_one_token;
 use crate::front::c::message::{ExpectedFoundPart, MessageKind};
 use crate::front::c::token::{
-    MacroInvocation, MacroResult, PPToken, PPTokenKind, TextSpan, TokenOrigin,
+    MacroInvocation, MacroResult, PPToken, PPTokenKind, TextPosition, TextSpan, TokenOrigin,
 };
 use crate::front::c::tuctx::TUCtx;
 
@@ -708,29 +708,40 @@ fn parse_directive_ifndef(
 }
 
 /// Breaks stream into separate lines
-fn parse_lines(mut tokens: Vec<PPToken>) -> Vec<Line> {
-    // Insert an extra newline into file to simplify parsing of directives
+///
+/// Will append a newline token to the input before splitting if the last token
+/// is not a newline already
+fn parse_lines(mut tokens: Vec<PPToken>, input: &Input) -> Vec<Line> {
+    // Create newline if missing
     {
-        let len = tokens.len();
-        debug_assert_ne!(len, 0);
-        debug_assert_eq!(tokens[len - 1].kind, PPTokenKind::EndOfFile);
-        if (len == 1) || (len > 1 && !tokens[len - 2].is_newline()) {
-            let mut newline = tokens[len - 1].clone();
-            newline.kind = PPTokenKind::Whitespace;
-            newline.value = "\n".to_owned();
-            tokens.insert(len - 1, newline);
+        let mut newline_pos = None;
+        if tokens.is_empty() {
+            newline_pos = Some(TextPosition {
+                input: input.id,
+                absolute: 0,
+            });
+        } else {
+            let last_token = tokens.last().unwrap();
+            if !last_token.is_newline() {
+                let mut span = *last_token.origin.as_source();
+                span.pos.absolute += span.len;
+                newline_pos = Some(span.pos);
+            }
         }
-        let len = tokens.len();
-        debug_assert!(len >= 2);
-        debug_assert!(tokens[len - 2].is_newline());
-        debug_assert_eq!(tokens[len - 1].kind, PPTokenKind::EndOfFile);
-    }
 
-    if log_enabled!(log::Level::Trace) {
-        for (i, token) in tokens.iter().enumerate() {
-            trace!("parse_lines() tokens[{}] = {:?}", i, token);
+        // appears we need to append a newline
+        if let Some(pos) = newline_pos {
+            // this fake token has `span.len = 0`, meaning zero width since it
+            // does not come from the input's content. This prevents panics when
+            // trying to read the source text
+            tokens.push(PPToken {
+                kind: PPTokenKind::Whitespace,
+                value: "\n".to_owned(),
+                origin: TokenOrigin::Source(TextSpan { pos, len: 0 }),
+            });
         }
     }
+    debug_assert!(tokens.last().unwrap().is_newline());
 
     let mut token_iter = tokens.into_iter();
     let mut lines: Vec<Vec<PPToken>> = Vec::new();
@@ -747,16 +758,14 @@ fn parse_lines(mut tokens: Vec<PPToken>) -> Vec<Line> {
             lines.push(Vec::new());
         }
     }
-    // every line is non empty
-    debug_assert!(lines.iter().all(|line| line.len() > 0));
-    // every line (but last) ends in newline
-    debug_assert!(lines
-        .iter()
-        .take(lines.len() - 1)
-        .all(|line| line.last().unwrap().is_newline()));
-    // last line is only EOF
-    debug_assert_eq!(lines.last().unwrap().len(), 1);
-    debug_assert_eq!(lines.last().unwrap()[0].kind, PPTokenKind::EndOfFile);
+
+    // Verify two things:
+    // - every line is non empty
+    // - every line ends in newline
+    debug_assert!(lines.last().unwrap().is_empty());
+    lines.pop();
+    debug_assert!(lines.iter().all(|line| !line.is_empty()));
+    debug_assert!(lines.iter().all(|line| line.last().unwrap().is_newline()));
 
     lines
 }
@@ -920,8 +929,8 @@ fn process_file_inclusion(
     let tokens = CharToken::from_input(&included_input);
     let phase1 = convert_trigraphs(tokens);
     let phase2 = splice_lines(tuctx, phase1);
-    let phase3 = lex(tuctx, phase2, included_input);
-    let lines = parse_lines(phase3);
+    let phase3 = lex(tuctx, phase2, &included_input);
+    let lines = parse_lines(phase3, &included_input);
     lines
 }
 
@@ -1699,6 +1708,7 @@ impl<'tu, 'drv, 'def> Expander<'tu, 'drv, 'def> {
                 },
             }
         }
+        trace!("Expander::expand() output={:?}", &self.output);
         self.output
     }
 }
@@ -1707,13 +1717,24 @@ impl<'tu, 'drv, 'def> Expander<'tu, 'drv, 'def> {
 ///
 /// This involves file inclusion, conditional inclusion, and macro expansion.
 pub fn preprocess(tuctx: &mut TUCtx, tokens: Vec<PPToken>) -> Vec<PPToken> {
-    if tokens.is_empty() {
-        return Vec::new();
+    let lines = parse_lines(tokens, tuctx.original_input());
+    if log::log_enabled!(log::Level::Trace) {
+        for (i, line) in lines.iter().enumerate() {
+            trace!("preprocess() lines[{}] = {:?}", i, line);
+        }
     }
-    let eof = tokens.last().unwrap().clone();
 
-    let lines = parse_lines(tokens);
-    trace!("preprocess() lines {:?}", &lines);
+    let last_span = *lines.last().unwrap().last().unwrap().origin.as_source();
+    let eof = PPToken {
+        kind: PPTokenKind::EndOfFile,
+        value: "".to_owned(),
+        origin: TokenOrigin::Source(last_span),
+    };
+
+    if lines.is_empty() {
+        // needed to compare two results of preprocess in tomltest
+        return vec![eof];
+    }
 
     // Here we split processing into two stages. This allows a simple
     // implementation accommodating some of the more unintuitive uses of macros.
@@ -1741,18 +1762,23 @@ pub fn preprocess(tuctx: &mut TUCtx, tokens: Vec<PPToken>) -> Vec<PPToken> {
 
     // Ensure the last thing Expander::from_directives().expand() sees is an EOF token,
     // which is necessary to know that there is absolutely nothing left to
-    // complete an unclosed macro invocation
+    // complete an unclosed macro invocation.
     //
-    // easiest to fix this up here rather than changing the logic of
-    // collect_lines_until_directive() which must also accommodate EOFs from
-    // #included files
+    // Because we have to reuse some functions to handle #including other files,
+    // we want those to ignore EOFs so they don't end up in the middle of the
+    // token stream. Thus, we have handle the EOF of the original source file
+    // carefully. It's easier to pop() it above and then add it back here.
     if let Some(Directive::Text(tokens)) = directives.last_mut() {
         tokens.push(eof);
     } else {
         directives.push(Directive::Text(vec![eof]));
     }
 
-    trace!("preprocess() directives {:?}", &directives);
+    if log::log_enabled!(log::Level::Trace) {
+        for (i, directive) in directives.iter().enumerate() {
+            trace!("preprocess() directives[{}] = {:?}", i, directive);
+        }
+    }
 
     // Now that we have the the entire text of input, we will expand macros
     let mut defines = HashMap::new();

@@ -115,7 +115,16 @@ impl PPToken {
         loop {
             match (a.next(), b.next()) {
                 // if elements match, continue
-                (Some((_, a)), Some((_, b))) if a == b => continue,
+                (Some((i, a)), Some((j, b))) if a == b => {
+                    log::trace!(
+                        "PPToken::assert_loose_equal() a[{}] = {:?} b[{}] = {:?}",
+                        i,
+                        a,
+                        j,
+                        b
+                    );
+                    continue;
+                },
 
                 // if both iterators terminate at same time, the lists were equal
                 (None, None) => return,

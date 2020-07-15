@@ -51,7 +51,7 @@ impl Pass for Phase3 {
     fn run(&self, tuctx: &mut TUCtx) -> Result<()> {
         let tu_input = Rc::clone(tuctx.original_input());
         let tokens = tuctx.take_state()?.into_chartokens()?;
-        let output = lex(tuctx, tokens, tu_input);
+        let output = lex(tuctx, tokens, &tu_input);
         tuctx.set_state(TUState::PPTokens(output));
 
         Ok(())

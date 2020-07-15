@@ -14,7 +14,7 @@ use regex::{Regex, RegexSet};
 use super::token::TokenOrigin;
 use crate::front::c::input::Input;
 use crate::front::c::message::MessageKind;
-use crate::front::c::token::{CharToken, PPToken, PPTokenKind, TextPosition, TextSpan};
+use crate::front::c::token::{CharToken, PPToken, PPTokenKind};
 use crate::front::c::tuctx::TUCtx;
 
 static TOKEN_PATTERNS: &[(&'static str, PPTokenKind)] = &[
@@ -122,7 +122,8 @@ fn test_correct_input(tokens: &[PPToken], input: u32) -> bool {
 }
 
 /// Categorize all tokens given by the input token sequence
-pub fn lex(tuctx: &mut TUCtx, tokens: Vec<CharToken>, input: Rc<Input>) -> Vec<PPToken> {
+pub fn lex(tuctx: &mut TUCtx, tokens: Vec<CharToken>, input: &Rc<Input>) -> Vec<PPToken> {
+    debug_assert!(Rc::ptr_eq(&tuctx.inputs[input.id as usize], &input));
     let string = CharToken::to_string(&tokens);
     debug_assert_eq!(tokens.len(), string.len());
 
@@ -166,29 +167,6 @@ pub fn lex(tuctx: &mut TUCtx, tokens: Vec<CharToken>, input: Rc<Input>) -> Vec<P
             })
         }
     }
-
-    debug_assert!(Rc::ptr_eq(&tuctx.inputs[input.id as usize], &input));
-
-    output.push(PPToken {
-        kind: PPTokenKind::EndOfFile,
-        value: "".to_owned(),
-        origin: TokenOrigin::Source(match output.last().map(|t| &t.origin) {
-            Some(TokenOrigin::Source(last_span)) => *last_span,
-            // Some(TokenOrigin::Source(last_span)) => {
-            //     let mut eof_span = *last_span;
-            //     eof_span.pos.absolute += last_span.len;
-            //     eof_span
-            // },
-            Some(TokenOrigin::Macro(..)) => unreachable!(),
-            None => TextSpan {
-                pos: TextPosition {
-                    input: input.id,
-                    absolute: 1,
-                },
-                len: 0,
-            },
-        }),
-    });
 
     debug_assert!(test_correct_input(&output, input.id));
 
@@ -237,10 +215,8 @@ mod test {
         fn case(input: &str) {
             let (tokens, _) = phase3(input);
             dbg!(&tokens);
-            assert_eq!(tokens.len(), 2);
+            assert_eq!(tokens.len(), 1);
             assert_eq!(tokens[0].kind, PPTokenKind::CharacterConstant);
-            assert_eq!(tokens[0].as_str(), input);
-            assert_eq!(tokens[1].kind, PPTokenKind::EndOfFile);
         }
 
         case("'a'");
@@ -254,7 +230,7 @@ mod test {
         case(r"'\'\''");
 
         let (tokens, _) = phase3("'a' + 'b'");
-        assert_eq!(tokens.len(), 6);
+        assert_eq!(tokens.len(), 5);
         assert_eq!(tokens[0].as_str(), "'a'");
         assert_eq!(tokens[4].as_str(), "'b'");
     }
@@ -263,10 +239,8 @@ mod test {
     fn test_phase3_whitespace() {
         fn case(input: &str) {
             let (tokens, _) = phase3(input);
-            assert_eq!(tokens.len(), 2);
+            assert_eq!(tokens.len(), 1);
             assert_eq!(tokens[0].kind, PPTokenKind::Whitespace);
-            assert_eq!(tokens[0].as_str(), input);
-            assert_eq!(tokens[1].kind, PPTokenKind::EndOfFile);
         }
 
         case(" ");
@@ -280,16 +254,15 @@ mod test {
 
         // newline is excluded from comment whitespace
         let (tokens, _) = phase3("//comment\n");
-        assert_eq!(tokens.len(), 3);
+        assert_eq!(tokens.len(), 2);
         assert_eq!(tokens[0].kind, PPTokenKind::Whitespace);
         assert_eq!(tokens[1].kind, PPTokenKind::Whitespace);
-        assert_eq!(tokens[2].kind, PPTokenKind::EndOfFile);
 
         let (tokens, _) = phase3("/* comment */\n");
-        assert_eq!(tokens.len(), 3);
+        assert_eq!(tokens.len(), 2);
 
         let (tokens, _) = phase3("test /* whitespace */");
-        assert_eq!(tokens.len(), 4);
+        assert_eq!(tokens.len(), 3);
         assert_eq!(tokens[0].value, "test");
         assert_eq!(tokens[0].kind, PPTokenKind::Identifier);
         assert_eq!(tokens[1].kind, PPTokenKind::Whitespace);
@@ -297,9 +270,8 @@ mod test {
         assert_eq!(tokens[2].kind, PPTokenKind::Whitespace);
 
         let (tokens, _) = phase3("/* \n */");
-        assert_eq!(tokens.len(), 2);
+        assert_eq!(tokens.len(), 1);
         assert_eq!(tokens[0].kind, PPTokenKind::Whitespace);
-        assert_eq!(tokens[1].kind, PPTokenKind::EndOfFile);
 
         // TODO other comment examples in 6.4.9
     }
@@ -308,10 +280,9 @@ mod test {
     fn test_phase3_ppnumber() {
         fn case(input: &str) {
             let (tokens, _) = phase3(input);
-            assert_eq!(tokens.len(), 2);
+            assert_eq!(tokens.len(), 1);
             assert_eq!(tokens[0].kind, PPTokenKind::PPNumber);
             assert_eq!(tokens[0].as_str(), input);
-            assert_eq!(tokens[1].kind, PPTokenKind::EndOfFile);
         }
 
         case("0123456789");
@@ -326,10 +297,9 @@ mod test {
     fn test_phase3_identifier() {
         fn case(input: &str) {
             let (tokens, _) = phase3(input);
-            assert_eq!(tokens.len(), 2);
+            assert_eq!(tokens.len(), 1);
             assert_eq!(tokens[0].kind, PPTokenKind::Identifier);
             assert_eq!(tokens[0].as_str(), input);
-            assert_eq!(tokens[1].kind, PPTokenKind::EndOfFile);
         }
 
         case("a");
@@ -340,10 +310,9 @@ mod test {
     fn test_phase3_punctuator() {
         fn case(input: &str) {
             let (tokens, _) = phase3(input);
-            assert_eq!(tokens.len(), 2);
+            assert_eq!(tokens.len(), 1);
             assert_eq!(tokens[0].kind, PPTokenKind::Punctuator);
             assert_eq!(tokens[0].as_str(), input);
-            assert_eq!(tokens[1].kind, PPTokenKind::EndOfFile);
         }
 
         static PUNCTUATORS: &[&'static str] = &[
