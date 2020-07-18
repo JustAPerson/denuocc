@@ -22,7 +22,12 @@ pub trait Message: std::fmt::Display {
 /// How severe a [`Message`][Message] is
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum Severity {
-    /// Compilation cannot succeed with an error
+    /// Compilation must terminate immediately. The current pass may or may not
+    /// continue. Further processing beyond the current pass is impossible.
+    Fatal,
+
+    /// Compilation cannot succeed with an error, but it may continue to further
+    /// passes in order to find other messages.
     Error,
 
     /// Compilation can succeed with a warning, but it should be displayed to
@@ -31,19 +36,16 @@ pub enum Severity {
 
     /// Additional information associated with another [`Message`][m]
     ///
-    /// An `Info` message must be a child of either an [`Error`][e] or [`Warning`][w]
-    ///
     /// [m]: Message
-    /// [e]: Severity::Error
-    /// [w]: Severity::Warning
     Info,
 }
 
 impl Severity {
     pub fn as_str(&self) -> &'static str {
         match *self {
-            Severity::Warning => "warning",
+            Severity::Fatal => "fatal error",
             Severity::Error => "error",
+            Severity::Warning => "warning",
             Severity::Info => "info",
         }
     }

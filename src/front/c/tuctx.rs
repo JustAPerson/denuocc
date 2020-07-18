@@ -9,7 +9,7 @@ use std::rc::Rc;
 
 use log::{debug, info};
 
-use crate::core::{ErrorKind, Result};
+use crate::core::{ErrorKind, Result, Severity};
 use crate::front::c::input::{IncludedFrom, Input};
 use crate::front::c::message::{Message, MessageKind};
 use crate::front::c::token::{CharToken, MacroInvocation, PPToken, TokenOrigin};
@@ -83,6 +83,8 @@ pub struct TUCtx<'a> {
     pub(super) inputs: Vec<Rc<Input>>,
     pub(super) state: Option<TUState>,
     pub(super) macro_invocations: Vec<MacroInvocation>,
+
+    fatal_error: bool,
 }
 
 impl<'a> TUCtx<'a> {
@@ -95,6 +97,8 @@ impl<'a> TUCtx<'a> {
             inputs,
             state: None,
             macro_invocations: Vec::new(),
+
+            fatal_error: false,
         }
     }
 
@@ -146,6 +150,9 @@ impl<'a> TUCtx<'a> {
             "TUCTx::emit_message() kind {:?} origin {:?}",
             &kind, &origin
         );
+        if kind.severity() == Severity::Fatal {
+            self.fatal_error = true;
+        }
         self.tu.messages.push(Message {
             kind,
             origin,
@@ -170,6 +177,9 @@ impl<'a> TUCtx<'a> {
             "TUCtx::emit_message_with_children() kind {:?} origin {:?} children {:?}",
             &kind, &origin, &children
         );
+        if kind.severity() == Severity::Fatal {
+            self.fatal_error = true;
+        }
         self.tu.messages.push(Message {
             kind,
             origin,
@@ -213,18 +223,28 @@ impl<'a> TUCtx<'a> {
         }
     }
 
-    pub fn run(&mut self) -> Result<()> {
+    pub fn run(&mut self) -> Result<bool> {
         let session = Rc::clone(&self.tu.session);
-        for pass in &session.flags().passes {
+        let passes = &session.flags().passes;
+        for pass in passes {
             debug!(
-                "TUCtx::run_one() tu alias {:?} running pass {:?}",
+                "TUCtx::run() tu alias {:?} running pass {:?}",
                 self.tu.input().name,
                 &pass
             );
             pass.run(self)?;
+            debug!("TUCtx::run() fatal {}", self.fatal_error);
+            if self.fatal_error {
+                info!("TUCtx::run() stopping because of fatal error");
+                break;
+            }
         }
+        if passes.len() > 0 {
+            self.save_state("<final>").unwrap();
+        }
+
         self.enrich_messages();
-        Ok(())
+        Ok(self.fatal_error)
     }
 
     fn enrich_messages(&mut self) {

@@ -219,7 +219,7 @@ impl MessageKind {
         use MessageKind::*;
         match self {
             Phase4MacroInvocationOpening { .. } | Phase4MacroFirstDefined { .. } => Severity::Info,
-            _ => Severity::Error, // TODO message severities
+            _ => Severity::Fatal, // TODO message severities
         }
     }
 }

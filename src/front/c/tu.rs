@@ -22,6 +22,7 @@ pub struct TranslationUnit {
     pub(super) input: Rc<Input>,
     pub(super) messages: Vec<Message>,
     pub(super) saved_states: HashMap<String, Vec<TUState>>,
+    pub(super) success: bool,
 }
 
 impl TranslationUnit {
@@ -50,9 +51,14 @@ impl TranslationUnit {
         &self.saved_states[name]
     }
 
+    /// Whether translation succeeded
+    pub fn success(&self) -> bool {
+        self.success
+    }
+
     pub fn run(&mut self) -> Result<()> {
         let mut ctx = TUCtx::from_tu(self);
-        ctx.run()?;
+        self.success = ctx.run()?;
         Ok(())
     }
 }
@@ -69,6 +75,8 @@ impl TranslationUnitBuilder {
             input: self.input.expect("must provide an input"),
             messages: Vec::new(),
             saved_states: HashMap::new(),
+
+            success: false,
         }
     }
 

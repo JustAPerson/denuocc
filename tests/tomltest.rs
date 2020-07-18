@@ -90,7 +90,6 @@ impl Case {
         for pass in &suite.passes {
             args.push(format!("--pass={}", pass))
         }
-        args.push("--pass=state_save(final)".to_owned());
 
         let session = Session::builder()
             .parse_cli_args_from_str(&args)
@@ -108,7 +107,7 @@ impl Case {
 
     fn run_input(&self, suite: &Suite) -> TUState {
         let tu = self.compile_case(self.input.get_mut(), suite);
-        let state = tu.saved_states("final")[0].clone();
+        let state = tu.saved_states("<final>")[0].clone();
 
         fn recurse_messages(output: &mut Vec<String>, messages: &[Message]) {
             for message in messages {
@@ -134,7 +133,7 @@ impl Case {
 
     fn run_output(&self, suite: &Suite) -> TUState {
         let tu = self.compile_case(self.output.as_ref().unwrap(), suite);
-        let state = tu.saved_states("final")[0].clone();
+        let state = tu.saved_states("<final>")[0].clone();
         let messages = tu.messages();
 
         self.print_result(suite, &state);

@@ -12,7 +12,7 @@ use std::rc::Rc;
 
 use log::{debug, error, info};
 
-use crate::core::{ErrorKind, Result, Severity};
+use crate::core::{ErrorKind, Result};
 use crate::session::{Session, SessionBuilder};
 use crate::tu::CTranslationUnit;
 
@@ -155,17 +155,7 @@ impl Driver {
     ///
     /// This will return `true` even if no translation units have even been run yet.
     pub fn success(&self) -> bool {
-        self.count_messages(Severity::Error) == 0
-    }
-
-    /// Return the number of messages of this severity across all translation units
-    pub fn count_messages(&self, severity: Severity) -> usize {
-        self.tus
-            .iter()
-            .map(|tu| tu.messages())
-            .flatten()
-            .filter(|m| m.kind.severity() == severity)
-            .count()
+        self.tus.iter().all(|tu| tu.success())
     }
 
     /// Write output files to disk

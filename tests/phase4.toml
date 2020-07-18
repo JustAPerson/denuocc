@@ -282,7 +282,6 @@ v()
 v(0)
 v(1, 2)
 """
-output = "0 1"
 messages = [
   "<case>:2:2: `v` expects at least 2 arguments; found 1",
   "<case>:3:2: `v` expects at least 2 arguments; found 1"
