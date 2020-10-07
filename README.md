@@ -29,10 +29,14 @@ where `k > 1`, so after scouring some ancient text books, I've managed to
 implement [this utility][gt] that simplifies the complicated task of writing
 any `LL(k)` parser.
 
+There's also a substantial [test suite][suite]. See this [testing document][testing] as well.
+
 [alot]: https://github.com/JustAPerson/denuocc/graphs/contributors
 [ll2]: https://en.wikipedia.org/wiki/LL_parser
 [gt]: https://github.com/JustAPerson/denuocc/tree/master/tools/grammar_tool
 [cpp]: https://github.com/JustAPerson/denuocc/blob/96e3a408de7af7cbdc0ba619596883109a6a3ea8/src/front/c/preprocessor.rs#L1716-L1787
+[suite]: ./tests/
+[testing]: ./docs/Testing.md
 
 # Running
 
